@@ -1,6 +1,6 @@
 use noise::{NoiseFn, Perlin};
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum TypeCase {
@@ -38,10 +38,11 @@ pub fn generer_carte(width: usize, height: usize, seed: u32) -> Vec<Vec<TypeCase
         base_x = rng.random_range(0..width);
         base_y = rng.random_range(0..height);
         if carte[base_y][base_x] == TypeCase::Vide {
+            carte[base_y][base_x] = TypeCase::Base;
             break;
         }
     }
-    
+
     carte[base_y][base_x] = TypeCase::Base;
     print!("Base en ({}, {})\n", base_x, base_y);
 

@@ -1,15 +1,20 @@
 mod base;
 mod generation;
 mod robot;
+mod ui;
+use crossterm::terminal;
+
 use crate::base::Base;
 use crate::generation::{generer_carte, TypeCase};
+use crate::ui::run_ui;
 
 fn main() {
     println!("=== DÉMARRAGE DU PROGRAMME ===");
 
     // Paramètres de la carte
-    let width = 50;
-    let height = 50;
+    let (width, height) = terminal::size().unwrap();
+    let width = width as usize;
+    let height = height as usize;
     let seed = 577679768;
     println!(
         "[MAIN] Initialisation de la carte {}x{} avec seed {}",
@@ -43,29 +48,12 @@ fn main() {
     println!("[MAIN] Démarrage du thread de la base...");
     base.demarrer_thread_base();
 
-    // Afficher la carte
-    println!("\n=== ÉTAT INITIAL DE LA CARTE ===");
-    for row in carte {
-        for case in row {
-            let symbol = match case {
-                TypeCase::Vide => ' ',
-                TypeCase::Base => 'B',
-                TypeCase::Mur => '#',
-                TypeCase::Energie => 'E',
-                TypeCase::Minerais => 'M',
-                TypeCase::Science => 'S',
-                TypeCase::Explorateur => 'X',
-                TypeCase::Collecteur => 'C',
-            };
-            print!("{}", symbol);
-        }
-        println!();
-    }
     println!("===============================\n");
 
     println!("[MAIN] Programme en cours d'exécution...");
     // Garder le programme en vie
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
+        run_ui(&carte, "Ressources: 100 énergie, 50 minerais, 25 science").unwrap();
     }
 }
