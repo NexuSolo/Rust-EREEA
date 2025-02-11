@@ -41,7 +41,7 @@ fn main() {
     println!("[MAIN] Création de la base...");
     let base = Base::new(width, height, base_x, base_y);
     println!("[MAIN] Démarrage du thread de la base...");
-    base.demarrer_thread_base();
+    base.demarrer_thread_base(width, height);
 
     // Afficher la carte
     println!("\n=== ÉTAT INITIAL DE LA CARTE ===");

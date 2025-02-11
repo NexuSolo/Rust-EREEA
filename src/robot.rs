@@ -1,4 +1,5 @@
 use crate::generation::TypeCase;
+use rand::Rng;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -19,7 +20,7 @@ pub struct Explorateur {
 }
 
 impl Explorateur {
-    pub fn new(x: usize, y: usize) -> Self {
+    pub fn new(map_width: usize, map_height: usize, x: usize, y: usize) -> Self {
         println!(
             "[EXPLORATEUR] Création d'un nouveau robot explorateur en ({}, {})",
             x, y
@@ -46,7 +47,30 @@ impl Explorateur {
                     "[EXPLORATEUR {:?}] Position: ({}, {}), À la base: {}",
                     thread_id, x, y, at_base
                 );
-
+                let mut rng = rand::rng();
+                let direction = rng.random_range(0..4);
+                match direction {
+                    0 => {
+                        if y > 0 {
+                            *pos_y.lock().unwrap() -= 1;
+                        }
+                    } // Haut
+                    1 => {
+                        if y < map_height - 1 {
+                            *pos_y.lock().unwrap() += 1
+                        }
+                    } // Bas
+                    2 => {
+                        if x > 0 {
+                            *pos_x.lock().unwrap() -= 1
+                        }
+                    } // Gauche
+                    _ => {
+                        if x < map_width - 1 {
+                            *pos_x.lock().unwrap() += 1
+                        }
+                    } // Droite
+                }
                 thread::sleep(Duration::from_secs(1));
             }
         });

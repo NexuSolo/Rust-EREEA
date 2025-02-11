@@ -31,12 +31,14 @@ impl Base {
             position_y,
         };
         println!("[BASE] Ajout des robots initiaux...");
-        base.ajouter_robot(Box::new(Explorateur::new(position_x, position_y)));
+        base.ajouter_robot(Box::new(Explorateur::new(
+            width, height, position_x, position_y,
+        )));
         base.ajouter_robot(Box::new(Collecteur::new(position_x, position_y)));
         base
     }
 
-    pub fn demarrer_thread_base(&self) {
+    pub fn demarrer_thread_base(&self, map_width: usize, map_height: usize) {
         println!("[BASE] Démarrage du thread principal de la base");
         let energie = Arc::clone(&self.energie);
         let minerais = Arc::clone(&self.minerais);
@@ -69,7 +71,9 @@ impl Base {
                             "[BASE] Création d'un nouveau robot explorateur en ({}, {})",
                             pos_x, pos_y
                         );
-                        robots.push(Box::new(Explorateur::new(pos_x, pos_y)));
+                        robots.push(Box::new(Explorateur::new(
+                            map_width, map_height, pos_x, pos_y,
+                        )));
                     } else {
                         println!(
                             "[BASE] Création d'un nouveau robot collecteur en ({}, {})",
