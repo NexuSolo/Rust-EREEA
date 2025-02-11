@@ -16,13 +16,19 @@ pub struct Base {
 }
 
 impl Base {
-    pub fn new(width: usize, height: usize, position_x: usize, position_y: usize) -> Self {
+    pub fn new(
+        width: usize,
+        height: usize,
+        position_x: usize,
+        position_y: usize,
+        carte_connue_init: Vec<Vec<TypeCase>>,
+    ) -> Self {
         println!(
             "[BASE] Création d'une nouvelle base aux coordonnées ({}, {})",
             position_x, position_y
         );
         let mut base = Base {
-            carte_connue: Arc::new(Mutex::new(vec![vec![TypeCase::Vide; width]; height])),
+            carte_connue: Arc::new(Mutex::new(carte_connue_init)),
             robots_deployes: Arc::new(Mutex::new(Vec::new())),
             energie: Arc::new(Mutex::new(0)),
             minerais: Arc::new(Mutex::new(0)),

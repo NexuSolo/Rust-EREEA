@@ -12,12 +12,18 @@ pub enum TypeCase {
     Science,
     Explorateur,
     Collecteur,
+    Inconnu,
 }
 
-pub fn generer_carte(width: usize, height: usize, seed: u32) -> Vec<Vec<TypeCase>> {
+pub fn generer_carte(
+    width: usize,
+    height: usize,
+    seed: u32,
+) -> (Vec<Vec<TypeCase>>, Vec<Vec<TypeCase>>) {
     let perlin = Perlin::new(seed);
     let mut rng = StdRng::seed_from_u64(seed as u64);
     let mut carte = vec![vec![TypeCase::Vide; width]; height];
+    let mut carte_connue = vec![vec![TypeCase::Inconnu; width]; height];
 
     // Génération du terrain
     for y in 0..height {
@@ -45,6 +51,18 @@ pub fn generer_carte(width: usize, height: usize, seed: u32) -> Vec<Vec<TypeCase
 
     carte[base_y][base_x] = TypeCase::Base;
     print!("Base en ({}, {})\n", base_x, base_y);
+
+    // Révéler la zone autour de la base dans la carte_connue
+    for dy in -3..=3 {
+        for dx in -3..=3 {
+            let new_x = base_x as i32 + dx;
+            let new_y = base_y as i32 + dy;
+            if new_x >= 0 && new_x < width as i32 && new_y >= 0 && new_y < height as i32 {
+                carte_connue[new_y as usize][new_x as usize] =
+                    carte[new_y as usize][new_x as usize].clone();
+            }
+        }
+    }
 
     // Ajout de points d'énergie
     let nb_energie = rng.random_range(10..=20);
@@ -76,5 +94,5 @@ pub fn generer_carte(width: usize, height: usize, seed: u32) -> Vec<Vec<TypeCase
         }
     }
 
-    carte
+    (carte, carte_connue)
 }

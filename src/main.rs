@@ -13,7 +13,7 @@ fn main() {
 
     // Paramètres de la carte
     let (width, height) = terminal::size().unwrap();
-    let width = width as usize;
+    let width = (width / 2) as usize;
     let height = height as usize;
     let seed = 577679768;
     println!(
@@ -22,7 +22,7 @@ fn main() {
     );
 
     // Générer la carte
-    let carte = generer_carte(width, height, seed);
+    let (carte, carte_connue) = generer_carte(width, height, seed);
     println!("[MAIN] Carte générée avec succès");
 
     // Trouver la position de la base dans la carte générée
@@ -44,7 +44,7 @@ fn main() {
 
     // Créer la base et démarrer son thread
     println!("[MAIN] Création de la base...");
-    let base = Base::new(width, height, base_x, base_y);
+    let base = Base::new(width, height, base_x, base_y, carte_connue.clone());
     println!("[MAIN] Démarrage du thread de la base...");
     base.demarrer_thread_base();
 
@@ -54,6 +54,10 @@ fn main() {
     // Garder le programme en vie
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
-        run_ui(&carte, "Ressources: 100 énergie, 50 minerais, 25 science").unwrap();
+        run_ui(
+            &carte_connue,
+            "Ressources: 100 énergie, 50 minerais, 25 science",
+        )
+        .unwrap();
     }
 }

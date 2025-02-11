@@ -33,16 +33,17 @@ pub fn run_ui(carte: &Vec<Vec<TypeCase>>, ressources: &str) -> Result<(), io::Er
         for row in carte {
             for case in row {
                 let symbol = match case {
-                    TypeCase::Vide => ' ',
-                    TypeCase::Base => '🏠',
-                    TypeCase::Mur => '🪨',
-                    TypeCase::Energie => '⚡',
-                    TypeCase::Minerais => '💎',
-                    TypeCase::Science => 'S',
-                    TypeCase::Explorateur => '🛸',
-                    TypeCase::Collecteur => '🤖',
+                    TypeCase::Vide => "  ",
+                    TypeCase::Base => "🏠",
+                    TypeCase::Mur => "🪨",
+                    TypeCase::Energie => "⚡",
+                    TypeCase::Minerais => "💎",
+                    TypeCase::Science => "S ",
+                    TypeCase::Explorateur => "🛸",
+                    TypeCase::Collecteur => "🤖",
+                    TypeCase::Inconnu => "▒▒",
                 };
-                map_string.push(symbol);
+                map_string.push_str(symbol);
             }
             map_string.push('\n');
         }
