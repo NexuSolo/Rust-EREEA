@@ -1,14 +1,12 @@
-extern crate termion;
 mod generation;
 mod ui;
 
+use crossterm::terminal;
 use generation::{generer_carte, TypeCase};
 use ui::run_ui;
 
-use termion::terminal_size;
-
 fn main() {
-    let (width, height) = terminal_size().unwrap();
+    let (width, height) = terminal::size().unwrap();
     let width = width as usize; // Réduire la largeur de 10 colonnes
     let height = (height as usize) - 5; // Réduire la hauteur de 5 lignes
     let seed = 5776968;
