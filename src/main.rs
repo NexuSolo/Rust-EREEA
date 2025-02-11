@@ -1,5 +1,6 @@
+mod base;
 mod generation;
-
+mod robot;
 use generation::{generer_carte, TypeCase};
 
 fn main() {
