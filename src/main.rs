@@ -5,7 +5,7 @@ use generation::{generer_carte, TypeCase};
 fn main() {
     let width = 50;
     let height = 50;
-    let seed = 5776968;
+    let seed = 577679768;
     let carte = generer_carte(width, height, seed);
 
     for row in carte {
