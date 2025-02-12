@@ -1,5 +1,6 @@
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
+use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 #[derive(Clone, PartialEq, Debug)]
