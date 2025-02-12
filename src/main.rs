@@ -37,6 +37,7 @@ fn main() {
     } else {
         panic!("Impossible d'accéder à la base")
     };
+
     let carte_connue = if let Ok(base_guard) = base.lock() {
         Arc::clone(&base_guard.carte_connue)
     } else {
@@ -49,12 +50,30 @@ fn main() {
     loop {
         std::thread::sleep(std::time::Duration::from_millis(100));
         if let Ok(carte) = carte_connue.lock() {
-            run_ui(
-                &carte,
-                "Ressources: 100 énergie, 50 minerais, 25 science",
-                &robots,
-            )
-            .unwrap();
+            if let Ok(base_guard) = base.lock() {
+                let energie = *base_guard.energie.lock().unwrap();
+                let minerais = *base_guard.minerais.lock().unwrap();
+                let science = *base_guard.science.lock().unwrap();
+                let nb_robots = base_guard.robots_deployes.lock().unwrap().len();
+
+                let mut nb_explorateurs = 0;
+                let mut nb_collecteurs = 0;
+                if let Ok(robots) = base_guard.robots_deployes.lock() {
+                    for robot in robots.iter() {
+                        match robot.get_type() {
+                            TypeCase::Explorateur => nb_explorateurs += 1,
+                            TypeCase::Collecteur => nb_collecteurs += 1,
+                            _ => {}
+                        }
+                    }
+                }
+
+                let ressources = format!(
+                    "Ressources: {} énergie, {} minerais, {} science | Robots: {} totaux ({} explorateurs, {} collecteurs)",
+                    energie, minerais, science, nb_robots, nb_explorateurs, nb_collecteurs
+                );
+                run_ui(&carte, &ressources, &robots).unwrap();
+            }
         }
     }
 }
