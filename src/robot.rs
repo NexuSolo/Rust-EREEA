@@ -44,28 +44,58 @@ impl Explorateur {
                 let mut rng = rand::rng();
                 let direction = rng.random_range(0..4);
 
-                // Déplacement
-                match direction {
+                let mut new_x = x;
+                let mut new_y = y;
+                let can_move = match direction {
                     0 => {
                         if y > 0 {
-                            *position_y.lock().unwrap() -= 1;
+                            new_y = y - 1;
+                            true
+                        } else {
+                            false
                         }
                     } // Haut
                     1 => {
                         if y < map_height - 1 {
-                            *position_y.lock().unwrap() += 1
+                            new_y = y + 1;
+                            true
+                        } else {
+                            false
                         }
                     } // Bas
                     2 => {
                         if x > 0 {
-                            *position_x.lock().unwrap() -= 1
+                            new_x = x - 1;
+                            true
+                        } else {
+                            false
                         }
                     } // Gauche
                     _ => {
                         if x < map_width - 1 {
-                            *position_x.lock().unwrap() += 1
+                            new_x = x + 1;
+                            true
+                        } else {
+                            false
                         }
                     } // Droite
+                };
+
+                // Vérifier si le déplacement est possible (pas de mur)
+                if can_move {
+                    if let Ok(base) = base.lock() {
+                        if let Ok(carte_reelle) = base.carte_reelle.lock() {
+                            if let Some(row) = carte_reelle.get(new_y) {
+                                if let Some(case_type) = row.get(new_x) {
+                                    if *case_type != TypeCase::Mur {
+                                        // Déplacement autorisé
+                                        *position_x.lock().unwrap() = new_x;
+                                        *position_y.lock().unwrap() = new_y;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Communication avec la base après le déplacement
