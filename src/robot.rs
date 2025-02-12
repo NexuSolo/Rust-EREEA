@@ -1,3 +1,4 @@
+use crate::base::Base;
 use crate::generation::TypeCase;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
@@ -10,7 +11,6 @@ pub trait Robot: Send {
     fn get_position_x(&self) -> usize;
     fn get_position_y(&self) -> usize;
     fn is_at_base(&self) -> bool;
-    fn communicate(&self);
 }
 
 pub struct Explorateur {
@@ -20,58 +20,88 @@ pub struct Explorateur {
 }
 
 impl Explorateur {
-    pub fn new(map_width: usize, map_height: usize, x: usize, y: usize) -> Self {
-        println!(
-            "[EXPLORATEUR] Création d'un nouveau robot explorateur en ({}, {})",
-            x, y
-        );
+    pub fn new(
+        map_width: usize,
+        map_height: usize,
+        x: usize,
+        y: usize,
+        base_ref: Arc<Mutex<Base>>,
+    ) -> Self {
         let explorateur = Explorateur {
             position_x: Arc::new(Mutex::new(x)),
             position_y: Arc::new(Mutex::new(y)),
             at_base: Arc::new(Mutex::new(true)),
         };
 
-        let pos_x = Arc::clone(&explorateur.position_x);
-        let pos_y = Arc::clone(&explorateur.position_y);
-        let at_base = Arc::clone(&explorateur.at_base);
+        let position_x = Arc::clone(&explorateur.position_x);
+        let position_y = Arc::clone(&explorateur.position_y);
+        let base = Arc::clone(&base_ref);
 
         thread::spawn(move || {
-            let thread_id = thread::current().id();
-            println!("[EXPLORATEUR] Thread {:?} démarré", thread_id);
-
             loop {
-                let x = *pos_x.lock().unwrap();
-                let y = *pos_y.lock().unwrap();
-                let at_base = *at_base.lock().unwrap();
-                println!(
-                    "[EXPLORATEUR {:?}] Position: ({}, {}), À la base: {}",
-                    thread_id, x, y, at_base
-                );
+                let x = *position_x.lock().unwrap();
+                let y = *position_y.lock().unwrap();
                 let mut rng = rand::rng();
                 let direction = rng.random_range(0..4);
+
+                // Déplacement
                 match direction {
                     0 => {
                         if y > 0 {
-                            *pos_y.lock().unwrap() -= 1;
+                            *position_y.lock().unwrap() -= 1;
                         }
                     } // Haut
                     1 => {
                         if y < map_height - 1 {
-                            *pos_y.lock().unwrap() += 1
+                            *position_y.lock().unwrap() += 1
                         }
                     } // Bas
                     2 => {
                         if x > 0 {
-                            *pos_x.lock().unwrap() -= 1
+                            *position_x.lock().unwrap() -= 1
                         }
                     } // Gauche
                     _ => {
                         if x < map_width - 1 {
-                            *pos_x.lock().unwrap() += 1
+                            *position_x.lock().unwrap() += 1
                         }
                     } // Droite
                 }
-                thread::sleep(Duration::from_secs(1));
+
+                // Communication avec la base après le déplacement
+                let x = *position_x.lock().unwrap();
+                let y = *position_y.lock().unwrap();
+
+                if let Ok(base) = base.lock() {
+                    for dy in -2..=2 {
+                        for dx in -2..=2 {
+                            let new_x = x as i32 + dx;
+                            let new_y = y as i32 + dy;
+
+                            if (dx.abs() + dy.abs()) <= 2 {
+                                if new_x >= 0
+                                    && new_y >= 0
+                                    && new_x < map_width as i32
+                                    && new_y < map_height as i32
+                                {
+                                    let new_x = new_x as usize;
+                                    let new_y = new_y as usize;
+
+                                    if let Ok(carte_reelle) = base.carte_reelle.lock() {
+                                        if let Some(case_type) =
+                                            carte_reelle.get(new_y).and_then(|row| row.get(new_x))
+                                        {
+                                            let case_type = case_type.clone();
+                                            base.mettre_a_jour_carte(new_x, new_y, case_type);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                thread::sleep(Duration::from_millis(50));
             }
         });
 
@@ -99,10 +129,6 @@ impl Robot for Explorateur {
     fn is_at_base(&self) -> bool {
         *self.at_base.lock().unwrap()
     }
-
-    fn communicate(&self) {
-        // todo
-    }
 }
 
 pub struct Collecteur {
@@ -113,10 +139,6 @@ pub struct Collecteur {
 
 impl Collecteur {
     pub fn new(x: usize, y: usize) -> Self {
-        println!(
-            "[COLLECTEUR] Création d'un nouveau robot collecteur en ({}, {})",
-            x, y
-        );
         let collecteur = Collecteur {
             position_x: Arc::new(Mutex::new(x)),
             position_y: Arc::new(Mutex::new(y)),
@@ -127,21 +149,11 @@ impl Collecteur {
         let pos_y = Arc::clone(&collecteur.position_y);
         let at_base = Arc::clone(&collecteur.at_base);
 
-        thread::spawn(move || {
-            let thread_id = thread::current().id();
-            println!("[COLLECTEUR] Thread {:?} démarré", thread_id);
-
-            loop {
-                let x = *pos_x.lock().unwrap();
-                let y = *pos_y.lock().unwrap();
-                let at_base = *at_base.lock().unwrap();
-                println!(
-                    "[COLLECTEUR {:?}] Position: ({}, {}), À la base: {}",
-                    thread_id, x, y, at_base
-                );
-
-                thread::sleep(Duration::from_secs(1));
-            }
+        thread::spawn(move || loop {
+            let x = *pos_x.lock().unwrap();
+            let y = *pos_y.lock().unwrap();
+            let at_base = *at_base.lock().unwrap();
+            thread::sleep(Duration::from_secs(1));
         });
 
         collecteur
@@ -167,9 +179,5 @@ impl Robot for Collecteur {
 
     fn is_at_base(&self) -> bool {
         *self.at_base.lock().unwrap()
-    }
-
-    fn communicate(&self) {
-        //todo
     }
 }
