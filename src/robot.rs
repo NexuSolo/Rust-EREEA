@@ -42,55 +42,57 @@ impl Explorateur {
                 let x = *position_x.lock().unwrap();
                 let y = *position_y.lock().unwrap();
                 let mut rng = rand::rng();
-                let direction = rng.random_range(0..4);
 
-                let mut new_x = x;
-                let mut new_y = y;
-                let can_move = match direction {
-                    0 => {
-                        if y > 0 {
-                            new_y = y - 1;
-                            true
-                        } else {
-                            false
-                        }
-                    } // Haut
-                    1 => {
-                        if y < map_height - 1 {
-                            new_y = y + 1;
-                            true
-                        } else {
-                            false
-                        }
-                    } // Bas
-                    2 => {
-                        if x > 0 {
-                            new_x = x - 1;
-                            true
-                        } else {
-                            false
-                        }
-                    } // Gauche
-                    _ => {
-                        if x < map_width - 1 {
-                            new_x = x + 1;
-                            true
-                        } else {
-                            false
-                        }
-                    } // Droite
-                };
+                // On va évaluer chaque direction possible
+                let mut directions = vec![];
+                let possible_moves = [
+                    (0, -1, 0), // Haut
+                    (0, 1, 1),  // Bas
+                    (-1, 0, 2), // Gauche
+                    (1, 0, 3),  // Droite
+                ];
 
-                // Vérifier si le déplacement est possible (pas de mur)
-                if can_move {
-                    if let Ok(base) = base.lock() {
+                if let Ok(base) = base.lock() {
+                    if let Ok(carte_connue) = base.carte_connue.lock() {
                         if let Ok(carte_reelle) = base.carte_reelle.lock() {
-                            if let Some(row) = carte_reelle.get(new_y) {
-                                if let Some(case_type) = row.get(new_x) {
-                                    if *case_type != TypeCase::Mur {
-                                        // Déplacement autorisé
-                                        *position_x.lock().unwrap() = new_x;
-                                        *position_y.lock().unwrap() = new_y;
+                            for (dx, dy, dir) in possible_moves.iter() {
+                                let new_x = x as i32 + dx;
+                                let new_y = y as i32 + dy;
+
+                                if new_x >= 0
+                                    && new_x < map_width as i32
+                                    && new_y >= 0
+                                    && new_y < map_height as i32
+                                {
+                                    let new_x = new_x as usize;
+                                    let new_y = new_y as usize;
+
+                                    // Ajout d'une logique de priorité pour les cases inconnues qui va augmenter la probabilité de se diriger vers elles
+                                    if let Some(row) = carte_reelle.get(new_y) {
+                                        if let Some(case_type) = row.get(new_x) {
+                                            if *case_type != TypeCase::Mur {
+                                                let weight = if let Some(known_row) =
+                                                    carte_connue.get(new_y)
+                                                {
+                                                    if let Some(known_type) = known_row.get(new_x) {
+                                                        if *known_type == TypeCase::Inconnu {
+                                                            3 // Donner plus de poids aux cases inexplorées
+                                                        } else {
+                                                            1
+                                                        }
+                                                    } else {
+                                                        3
+                                                    }
+                                                } else {
+                                                    3
+                                                };
+
+                                                // Ajouter la direction weight fois pour augmenter sa probabilité
+                                                for _ in 0..weight {
+                                                    directions.push(*dir);
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -98,7 +100,24 @@ impl Explorateur {
                     }
                 }
 
-                // Communication avec la base après le déplacement
+                // Si aucune direction n'est possible, on ne bouge pas
+                if !directions.is_empty() {
+                    let direction = directions[rng.random_range(0..directions.len())];
+                    let (dx, dy) = match direction {
+                        0 => (0, -1), // Haut
+                        1 => (0, 1),  // Bas
+                        2 => (-1, 0), // Gauche
+                        _ => (1, 0),  // Droite
+                    };
+
+                    let new_x = (x as i32 + dx) as usize;
+                    let new_y = (y as i32 + dy) as usize;
+
+                    *position_x.lock().unwrap() = new_x;
+                    *position_y.lock().unwrap() = new_y;
+                }
+
+                // Communication avec la base après le déplacement (mise à jour de la vision)
                 let x = *position_x.lock().unwrap();
                 let y = *position_y.lock().unwrap();
 
@@ -140,9 +159,7 @@ impl Explorateur {
 }
 
 impl Robot for Explorateur {
-    fn next_move(&self) {
-        //todo
-    }
+    fn next_move(&self) {}
 
     fn get_type(&self) -> TypeCase {
         TypeCase::Explorateur
