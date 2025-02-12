@@ -1,5 +1,6 @@
 use crate::generation::TypeCase;
 use crate::robot::Robot;
+use log::{debug, info, trace, warn};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Style};
@@ -13,6 +14,8 @@ pub fn run_ui(
     ressources: &str,
     robots: &Arc<Mutex<Vec<Box<dyn Robot + Send>>>>,
 ) -> Result<(), io::Error> {
+    info!("[UI] Démarrage de l'interface utilisateur");
+
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
@@ -77,6 +80,7 @@ pub fn run_ui(
             );
 
         f.render_widget(map_paragraph, chunks[1]);
+        info!("[UI] Interface utilisateur mise à jour");
     })?;
 
     Ok(())

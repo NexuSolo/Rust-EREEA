@@ -1,3 +1,4 @@
+use log::{debug, info, warn};
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -19,7 +20,9 @@ pub fn generer_carte(
     width: usize,
     height: usize,
     seed: u32,
-) -> (Vec<Vec<TypeCase>>, Vec<Vec<TypeCase>>) {
+) -> (Vec<Vec<TypeCase>>, Vec<Vec<TypeCase>>, usize, usize) {
+    info!("[GENERATION] Début de la génération de la carte");
+
     let perlin = Perlin::new(seed);
     let mut rng = StdRng::seed_from_u64(seed as u64);
     let mut carte = vec![vec![TypeCase::Vide; width]; height];
@@ -49,8 +52,7 @@ pub fn generer_carte(
         }
     }
 
-    carte[base_y][base_x] = TypeCase::Base;
-    print!("Base en ({}, {})\n", base_x, base_y);
+    info!("[GENERATION] Base placée en ({}, {})", base_x, base_y);
 
     // Révéler la zone autour de la base dans la carte_connue
     for dy in -3..=3 {
@@ -94,5 +96,6 @@ pub fn generer_carte(
         }
     }
 
-    (carte, carte_connue)
+    info!("[GENERATION] Carte générée avec succès");
+    (carte, carte_connue, base_x, base_y)
 }
