@@ -15,7 +15,7 @@ fn main() {
     let (width, height) = terminal::size().unwrap();
     let width = (width / 2) as usize;
     let height = height as usize;
-    let seed = 577679768;
+    let seed = 826889;
 
     let (carte, carte_connue) = generer_carte(width, height, seed);
 
@@ -50,31 +50,31 @@ fn main() {
     // Garder le programme en vie
     loop {
         std::thread::sleep(std::time::Duration::from_millis(100));
-        if let Ok(carte) = carte_connue.lock() {
-            if let Ok(base_guard) = base.lock() {
-                let energie = *base_guard.energie.lock().unwrap();
-                let minerais = *base_guard.minerais.lock().unwrap();
-                let science = *base_guard.science.lock().unwrap();
-                let nb_robots = base_guard.robots_deployes.lock().unwrap().len();
+        // if let Ok(carte) = carte_connue.lock() {
+        //     if let Ok(base_guard) = base.lock() {
+        //         let energie = *base_guard.energie.lock().unwrap();
+        //         let minerais = *base_guard.minerais.lock().unwrap();
+        //         let science = *base_guard.science.lock().unwrap();
+        //         let nb_robots = base_guard.robots_deployes.lock().unwrap().len();
 
-                let mut nb_explorateurs = 0;
-                let mut nb_collecteurs = 0;
-                if let Ok(robots) = base_guard.robots_deployes.lock() {
-                    for robot in robots.iter() {
-                        match robot.get_type() {
-                            TypeCase::Explorateur => nb_explorateurs += 1,
-                            TypeCase::Collecteur => nb_collecteurs += 1,
-                            _ => {}
-                        }
-                    }
-                }
+        //         let mut nb_explorateurs = 0;
+        //         let mut nb_collecteurs = 0;
+        //         if let Ok(robots) = base_guard.robots_deployes.lock() {
+        //             for robot in robots.iter() {
+        //                 match robot.get_type() {
+        //                     TypeCase::Explorateur => nb_explorateurs += 1,
+        //                     TypeCase::Collecteur => nb_collecteurs += 1,
+        //                     _ => {}
+        //                 }
+        //             }
+        //         }
 
-                let ressources = format!(
-                    "Ressources: {} énergie, {} minerais, {} science | Robots: {} totaux ({} explorateurs, {} collecteurs)",
-                    energie, minerais, science, nb_robots, nb_explorateurs, nb_collecteurs
-                );
-                run_ui(&carte, &ressources, &robots).unwrap();
-            }
-        }
+        //         let ressources = format!(
+        //             "Ressources: {} énergie, {} minerais, {} science | Robots: {} totaux ({} explorateurs, {} collecteurs)",
+        //             energie, minerais, science, nb_robots, nb_explorateurs, nb_collecteurs
+        //         );
+        //         run_ui(&carte, &ressources, &robots).unwrap();
+        //     }
+        // }
     }
 }

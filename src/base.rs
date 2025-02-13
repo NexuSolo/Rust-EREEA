@@ -52,7 +52,11 @@ impl Base {
                 position_y,
                 Arc::clone(&base),
             )));
-            base_guard.ajouter_robot(Box::new(Collecteur::new(position_x, position_y)));
+            base_guard.ajouter_robot(Box::new(Collecteur::new(
+                position_x,
+                position_y,
+                Arc::clone(&base),
+            )));
         }
 
         base
@@ -65,30 +69,75 @@ impl Base {
 
             loop {
                 if let Ok(base_guard) = base_thread.lock() {
+                    // Gestion de la création des robots
                     let energie_val = *base_guard.energie.lock().unwrap();
                     let minerais_val = *base_guard.minerais.lock().unwrap();
                     let science_val = *base_guard.science.lock().unwrap();
                     let pos_x = base_guard.position_x;
                     let pos_y = base_guard.position_y;
-                    if energie_val >= 3 && minerais_val >= 3 && science_val >= 3 {
-                        let mut robots = base_guard.robots_deployes.lock().unwrap();
-                        if rng.random_range(0..3) == 0 {
-                            robots.push(Box::new(Explorateur::new(
-                                map_width,
-                                map_height,
-                                pos_x,
-                                pos_y,
-                                Arc::clone(&base_thread),
-                            )));
-                        } else {
-                            robots.push(Box::new(Collecteur::new(pos_x, pos_y)));
-                        }
-                        *base_guard.energie.lock().unwrap() -= 3;
-                        *base_guard.minerais.lock().unwrap() -= 3;
-                        *base_guard.science.lock().unwrap() -= 3;
-                    }
+                    // if energie_val >= 3 && minerais_val >= 3 && science_val >= 3 {
+                    //     let mut robots = base_guard.robots_deployes.lock().unwrap();
+                    //     if rng.random_range(0..3) == 0 {
+                    //         robots.push(Box::new(Explorateur::new(
+                    //             map_width,
+                    //             map_height,
+                    //             pos_x,
+                    //             pos_y,
+                    //             Arc::clone(&base_thread),
+                    //         )));
+                    //     } else {
+                    //         robots.push(Box::new(Collecteur::new(
+                    //             pos_x,
+                    //             pos_y,
+                    //             Arc::clone(&base_thread),
+                    //         )));
+                    //     }
+                    //     *base_guard.energie.lock().unwrap() -= 3;
+                    //     *base_guard.minerais.lock().unwrap() -= 3;
+                    //     *base_guard.science.lock().unwrap() -= 3;
+                    // }
                 }
 
+                // Le but est d'avoir 3 ressources de chaque type pour créer un robot
+                // Il va donc falloir vérifier si on a un robot collecteur a la base
+                // Si oui, il va falloir lui attribuer une destination
+                // Pour trouver la destination il va falloir parcourir la carte connue lister les ressources trouvé et faire une priorité sur la ressource necessaire pour créer un robot
+                if let Ok(base_guard) = base_thread.lock() {
+                    let mut robots = base_guard.robots_deployes.lock().unwrap();
+                    for robot in robots.iter_mut() {
+                        if robot.get_type() == TypeCase::Collecteur && robot.is_at_base() {
+                            //créer un liste de rssource qui contient les 3 rsource priorisé
+
+                            let mut resource_selected: Option<(usize, usize, i32)> = None;
+                            if let Ok(carte_connue) = base_guard.carte_connue.lock() {
+                                for (y, row) in carte_connue.iter().enumerate() {
+                                    for (x, case) in row.iter().enumerate() {
+                                        if *case == TypeCase::Energie
+                                            || *case == TypeCase::Minerais
+                                            || *case == TypeCase::Science
+                                        {
+                                            let distance = (robot.get_position_x() as i32
+                                                - x as i32)
+                                                .pow(2)
+                                                + (robot.get_position_y() as i32 - y as i32).pow(2);
+                                            if let Some((_, _, d)) = resource_selected {
+                                                if d > distance {
+                                                    resource_selected = Some((x, y, distance));
+                                                }
+                                            } else {
+                                                resource_selected = Some((x, y, distance));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some((x, y, _)) = resource_selected {
+                                robot.set_destination(x, y);
+                            }
+                        }
+                    }
+                }
+                println!("Base thread");
                 thread::sleep(Duration::from_secs(1));
             }
         });
