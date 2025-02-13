@@ -1,5 +1,6 @@
 mod base;
 mod generation;
+mod pathfinding;
 mod robot;
 mod ui;
 use crossterm::terminal;
