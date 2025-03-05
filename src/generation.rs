@@ -1,6 +1,7 @@
 use noise::{NoiseFn, Perlin};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum TypeCase {
@@ -19,7 +20,11 @@ pub fn generer_carte(
     width: usize,
     height: usize,
     seed: u32,
-) -> (Vec<Vec<TypeCase>>, Vec<Vec<TypeCase>>) {
+) -> (
+    Arc<Mutex<Vec<Vec<TypeCase>>>>,
+    Arc<Mutex<Vec<Vec<TypeCase>>>>,
+    (usize, usize),
+) {
     let perlin = Perlin::new(seed);
     let mut rng = StdRng::seed_from_u64(seed as u64);
     let mut carte = vec![vec![TypeCase::Vide; width]; height];
@@ -49,7 +54,6 @@ pub fn generer_carte(
         }
     }
 
-    carte[base_y][base_x] = TypeCase::Base;
     print!("Base en ({}, {})\n", base_x, base_y);
 
     // Révéler la zone autour de la base dans la carte_connue
@@ -94,5 +98,9 @@ pub fn generer_carte(
         }
     }
 
-    (carte, carte_connue)
+    (
+        Arc::new(Mutex::new(carte)),
+        Arc::new(Mutex::new(carte_connue)),
+        (base_x, base_y),
+    )
 }

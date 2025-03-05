@@ -9,7 +9,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 
 pub fn run_ui(
-    carte: &Vec<Vec<TypeCase>>,
+    carte: &Arc<Mutex<Vec<Vec<TypeCase>>>>,
     ressources: &str,
     robots: &Arc<Mutex<Vec<Box<dyn Robot + Send>>>>,
 ) -> Result<(), io::Error> {
@@ -36,7 +36,9 @@ pub fn run_ui(
         f.render_widget(ressources_paragraph, chunks[0]);
 
         // Créer une copie de la carte pour l'affichage
-        let mut carte_affichage = carte.clone();
+        let carte_guard = carte.lock().unwrap();
+        let mut carte_affichage = (*carte_guard).clone();
+        drop(carte_guard);
 
         // Mettre à jour la carte avec les positions des robots
         if let Ok(robots_guard) = robots.lock() {
