@@ -54,8 +54,6 @@ pub fn generer_carte(
         }
     }
 
-    print!("Base en ({}, {})\n", base_x, base_y);
-
     // Révéler la zone autour de la base dans la carte_connue
     for dy in -3..=3 {
         for dx in -3..=3 {

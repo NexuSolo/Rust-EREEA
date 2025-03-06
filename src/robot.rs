@@ -235,10 +235,18 @@ impl Collecteur {
                             if curr_x == target_x && curr_y == target_y {
                                 // Collecter la ressource
                                 if !has_resource {
-                                    if let Ok(carte) = base_guard.carte_reelle.lock() {
+                                    if let Ok(mut carte) = base_guard.carte_reelle.lock() {
                                         let resource = carte[curr_y][curr_x].clone();
                                         *collected_resource.lock().unwrap() =
                                             Some(resource.clone());
+
+                                        //Mettre a jour les cartes en supprimant la ressource
+                                        carte[curr_y][curr_x] = TypeCase::Vide;
+                                        if let Ok(mut carte_connue) = base_guard.carte_connue.lock()
+                                        {
+                                            carte_connue[curr_y][curr_x] = TypeCase::Vide;
+                                        }
+
                                         base_guard.release_resource(curr_x, curr_y);
 
                                         // Calculer le chemin de retour vers la base

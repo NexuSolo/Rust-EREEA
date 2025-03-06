@@ -12,13 +12,13 @@ struct PrioritizedResource {
     x: usize,
     y: usize,
     distance: usize,
-    priority: bool,
+    priority_level: usize,
 }
 
 // Implémentation des traits nécessaires pour la file de priorité
 impl PartialEq for PrioritizedResource {
     fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance && self.priority == other.priority
+        self.priority_level == other.priority_level && self.distance == other.distance
     }
 }
 
@@ -31,11 +31,10 @@ impl PartialOrd for PrioritizedResource {
 
 impl Ord for PrioritizedResource {
     fn cmp(&self, other: &Self) -> Ordering {
-        // D'abord comparer la priorité
-        match (self.priority, other.priority) {
-            (true, false) => return Ordering::Greater,
-            (false, true) => return Ordering::Less,
-            _ => {}
+        // D'abord comparer le niveau de priorité
+        match self.priority_level.cmp(&other.priority_level) {
+            Ordering::Equal => {}
+            ordering => return ordering,
         }
 
         // Ensuite comparer la distance
@@ -101,13 +100,104 @@ impl Base {
         base
     }
 
-    pub fn demarrer_thread_base(base: Arc<Mutex<Base>>, _map_width: usize, _map_height: usize) {
+    pub fn demarrer_thread_base(base: Arc<Mutex<Base>>, map_width: usize, map_height: usize) {
         thread::spawn(move || loop {
-            // Logique de gestion des robots et des ressources
-            if let Ok(_base) = base.lock() {
-                // Future logique de gestion de la base
+            let mut explorateurs_count = 0;
+            let mut collecteurs_count = 0;
+            let mut energie = 0;
+            let mut minerais = 0;
+            let mut science = 0;
+            let mut position_x = 0;
+            let mut position_y = 0;
+
+            // Initialisé les variables
+            if let Ok(base_guard) = base.lock() {
+                position_x = base_guard.position_x;
+                position_y = base_guard.position_y;
+
+                if let Ok(robots) = base_guard.robots_deployes.lock() {
+                    for robot in robots.iter() {
+                        match robot.get_type() {
+                            TypeCase::Explorateur => explorateurs_count += 1,
+                            TypeCase::Collecteur => collecteurs_count += 1,
+                            _ => {}
+                        }
+                    }
+                }
+
+                if let Ok(e) = base_guard.energie.lock() {
+                    energie = *e;
+                }
+                if let Ok(m) = base_guard.minerais.lock() {
+                    minerais = *m;
+                }
+                if let Ok(s) = base_guard.science.lock() {
+                    science = *s;
+                }
             }
-            thread::sleep(Duration::from_secs(1));
+
+            // Calculer le ratio et déterminer quel robot créer
+            let ratio_actuel = if explorateurs_count == 0 {
+                0.0
+            } else {
+                collecteurs_count as f32 / explorateurs_count as f32
+            };
+
+            let create_collecteur = ratio_actuel < 2.0
+                && collecteurs_count > 0
+                && science >= 1
+                && minerais >= 5
+                && energie >= 4;
+
+            let create_explorateur = (ratio_actuel >= 2.0 || explorateurs_count == 0)
+                && science >= 4
+                && minerais >= 3
+                && energie >= 2;
+
+            //Création des robots
+            if create_collecteur || create_explorateur {
+                if let Ok(mut base_guard) = base.lock() {
+                    if create_collecteur {
+                        // Ressources pour un collecteur 1 Science, 5 Minerais, 4 Energie
+                        if let Ok(mut s) = base_guard.science.lock() {
+                            *s -= 1;
+                        }
+                        if let Ok(mut m) = base_guard.minerais.lock() {
+                            *m -= 5;
+                        }
+                        if let Ok(mut e) = base_guard.energie.lock() {
+                            *e -= 4;
+                        }
+
+                        base_guard.ajouter_robot(Box::new(Collecteur::new(
+                            position_x,
+                            position_y,
+                            Arc::clone(&base),
+                        )));
+                    } else if create_explorateur {
+                        // Ressources pour un explorateur 4 Sciences, 3 Minerais, 2 Energie
+                        if let Ok(mut s) = base_guard.science.lock() {
+                            *s -= 4;
+                        }
+                        if let Ok(mut m) = base_guard.minerais.lock() {
+                            *m -= 3;
+                        }
+                        if let Ok(mut e) = base_guard.energie.lock() {
+                            *e -= 2;
+                        }
+
+                        base_guard.ajouter_robot(Box::new(Explorateur::new(
+                            map_width,
+                            map_height,
+                            position_x,
+                            position_y,
+                            Arc::clone(&base),
+                        )));
+                    }
+                }
+            }
+
+            thread::sleep(Duration::from_secs(4));
         });
     }
 
@@ -132,8 +222,8 @@ impl Base {
         let height = carte_connue.len();
         let width = carte_connue[0].len();
 
-        // Déterminer quelle ressource a le compte le plus bas
-        let min_resource_count = energie_count.min(minerais_count).min(science_count);
+        // Trouver le compteur de ressource le plus élevé
+        let max_resource_count = energie_count.max(minerais_count).max(science_count);
 
         let mut priority_queue: BinaryHeap<PrioritizedResource> = BinaryHeap::new();
 
@@ -152,19 +242,19 @@ impl Base {
                         let distance =
                             Self::manhattan_distance(self.position_x, self.position_y, x, y);
 
-                        // Déterminer si cette ressource est prioritaire
-                        let is_priority = match case {
-                            TypeCase::Energie => energie_count == min_resource_count,
-                            TypeCase::Minerais => minerais_count == min_resource_count,
-                            TypeCase::Science => science_count == min_resource_count,
-                            _ => false,
+                        // Calculer le niveau de priorité basé sur la différence avec le compteur le plus élevé
+                        let priority_level = match case {
+                            TypeCase::Energie => max_resource_count.saturating_sub(energie_count),
+                            TypeCase::Minerais => max_resource_count.saturating_sub(minerais_count),
+                            TypeCase::Science => max_resource_count.saturating_sub(science_count),
+                            _ => 0,
                         };
 
                         priority_queue.push(PrioritizedResource {
                             x,
                             y,
                             distance,
-                            priority: is_priority,
+                            priority_level,
                         });
                     }
                     _ => continue,
