@@ -55,6 +55,7 @@ fn main() {
                 "Ressources: {} énergie, {} minerais, {} science | Robots: {} totaux ({} explorateurs, {} collecteurs)",
                 energie, minerais, science, nb_robots, nb_explorateurs, nb_collecteurs
             );
+
             run_ui(
                 &base_guard.carte_connue,
                 &ressources,

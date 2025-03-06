@@ -1,5 +1,5 @@
 use crate::generation::TypeCase;
-use seastar::{Grid, Point, astar};
+use seastar::{astar, Grid, Point};
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Pos(pub usize, pub usize);
@@ -16,7 +16,7 @@ pub fn find_path(
     let mut grid_data = vec![vec![false; width]; height];
     for y in 0..height {
         for x in 0..width {
-            grid_data[y][x] = map[y][x] == TypeCase::Mur;
+            grid_data[y][x] = map[y][x] == TypeCase::Mur || map[y][x] == TypeCase::Inconnu;
         }
     }
 

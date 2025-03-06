@@ -3,7 +3,7 @@ use crate::generation::TypeCase;
 use crate::pathfinding::find_path;
 use rand::Rng;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::thread::{self};
 use std::time::Duration;
 
 pub trait Robot: Send {
@@ -172,7 +172,6 @@ impl Robot for Explorateur {
 pub struct Collecteur {
     position_x: Arc<Mutex<usize>>,
     position_y: Arc<Mutex<usize>>,
-    base_ref: Arc<Mutex<Base>>,
     at_base: Arc<Mutex<bool>>,
     path: Arc<Mutex<Vec<(usize, usize)>>>,
     collected_resource: Arc<Mutex<Option<TypeCase>>>,
@@ -185,7 +184,6 @@ impl Collecteur {
             position_x: Arc::new(Mutex::new(x)),
             position_y: Arc::new(Mutex::new(y)),
             at_base: Arc::new(Mutex::new(true)),
-            base_ref: Arc::clone(&base_ref),
             path: Arc::new(Mutex::new(Vec::new())),
             collected_resource: Arc::new(Mutex::new(None)),
             destination: Arc::new(Mutex::new(None)),
@@ -193,11 +191,79 @@ impl Collecteur {
 
         let position_x = Arc::clone(&collecteur.position_x);
         let position_y = Arc::clone(&collecteur.position_y);
+        let path = Arc::clone(&collecteur.path);
+        let at_base = Arc::clone(&collecteur.at_base);
+        let collected_resource = Arc::clone(&collecteur.collected_resource);
+        let destination = Arc::clone(&collecteur.destination);
         let base = Arc::clone(&base_ref);
 
-        thread::spawn(move || loop {
-            let x = *position_x.lock().unwrap();
-            let y = *position_y.lock().unwrap();
+        thread::spawn(move || {
+            loop {
+                if let Ok(base_guard) = base.lock() {
+                    let curr_x = *position_x.lock().unwrap();
+                    let curr_y = *position_y.lock().unwrap();
+                    let mut path_guard = path.lock().unwrap();
+                    let is_at_base =
+                        curr_x == base_guard.position_x && curr_y == base_guard.position_y;
+                    *at_base.lock().unwrap() = is_at_base;
+                    let has_resource = collected_resource.lock().unwrap().is_some();
+
+                    // Si le robot est à la base et n'a pas de ressource, chercher une nouvelle destination
+                    if is_at_base && !has_resource && path_guard.is_empty() {
+                        if let Some((target_x, target_y)) = base_guard.next_resource() {
+                            if let Ok(carte_connue) = base_guard.carte_connue.lock() {
+                                if let Some(new_path) =
+                                    find_path((target_x, target_y), (curr_x, curr_y), &carte_connue)
+                                {
+                                    *path_guard = new_path;
+                                    *destination.lock().unwrap() = Some((target_x, target_y));
+                                }
+                            }
+                        }
+                    }
+                    // Si le robot a une ressource et est à la base, la déposer
+                    else if is_at_base && has_resource {
+                        if let Some(resource) = collected_resource.lock().unwrap().clone() {
+                            base_guard.ajouter_ressource(resource);
+                        }
+                        *collected_resource.lock().unwrap() = None;
+                    }
+                    // Si le robot a une destination et n'est pas sur un chemin
+                    else if path_guard.is_empty() {
+                        if let Some((target_x, target_y)) = *destination.lock().unwrap() {
+                            // Si on est arrivé à destination
+                            if curr_x == target_x && curr_y == target_y {
+                                // Collecter la ressource
+                                if !has_resource {
+                                    if let Ok(carte) = base_guard.carte_reelle.lock() {
+                                        let resource = carte[curr_y][curr_x].clone();
+                                        *collected_resource.lock().unwrap() =
+                                            Some(resource.clone());
+                                        base_guard.release_resource(curr_x, curr_y);
+
+                                        // Calculer le chemin de retour vers la base
+                                        if let Ok(carte_connue) = base_guard.carte_connue.lock() {
+                                            if let Some(new_path) = find_path(
+                                                (base_guard.position_x, base_guard.position_y),
+                                                (curr_x, curr_y),
+                                                &carte_connue,
+                                            ) {
+                                                *path_guard = new_path;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Si le robot est sur un chemin, suivre le chemin
+                    else if let Some((next_x, next_y)) = path_guard.pop() {
+                        *position_x.lock().unwrap() = next_x;
+                        *position_y.lock().unwrap() = next_y;
+                    }
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
         });
 
         collecteur

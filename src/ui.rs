@@ -46,7 +46,15 @@ pub fn run_ui(
                 let x = robot.get_position_x();
                 let y = robot.get_position_y();
                 if y < carte_affichage.len() && x < carte_affichage[0].len() {
-                    carte_affichage[y][x] = robot.get_type();
+                    if robot.get_type() == TypeCase::Collecteur {
+                        if let Ok(carte_guard) = carte.lock() {
+                            if carte_guard[y][x] != TypeCase::Base {
+                                carte_affichage[y][x] = robot.get_type();
+                            }
+                        }
+                    } else {
+                        carte_affichage[y][x] = robot.get_type();
+                    }
                 }
             }
         }
@@ -60,9 +68,9 @@ pub fn run_ui(
                     TypeCase::Energie => "⚡",
                     TypeCase::Minerais => "💎",
                     TypeCase::Science => "S ",
+                    TypeCase::Base => "🏠",
                     TypeCase::Explorateur => "🛸",
                     TypeCase::Collecteur => "🤖",
-                    TypeCase::Base => "🏠",
                     TypeCase::Inconnu => "▒▒",
                 };
                 map_string.push_str(symbol);
