@@ -9,8 +9,8 @@ use std::io;
 use std::sync::{Arc, Mutex};
 
 pub fn run_ui(
-    carte: &Arc<Mutex<Vec<Vec<TypeCase>>>>,
-    ressources: &str,
+    map: &Arc<Mutex<Vec<Vec<TypeCase>>>>,
+    resources: &str,
     robots: &Arc<Mutex<Vec<Box<dyn Robot + Send>>>>,
 ) -> Result<(), io::Error> {
     let stdout = io::stdout();
@@ -25,53 +25,53 @@ pub fn run_ui(
             .constraints([Constraint::Length(3), Constraint::Length(reduced_height)].as_ref())
             .split(size);
 
-        let ressources_paragraph = Paragraph::new(ressources)
-            .block(Block::default().borders(Borders::ALL).title("Ressources"))
+        let resources_paragraph = Paragraph::new(resources)
+            .block(Block::default().borders(Borders::ALL).title("Resources"))
             .style(
                 Style::default()
                     .fg(Color::Rgb(208, 191, 154))
                     .bg(Color::Rgb(27, 27, 34)),
             );
 
-        f.render_widget(ressources_paragraph, chunks[0]);
+        f.render_widget(resources_paragraph, chunks[0]);
 
-        // Créer une copie de la carte pour l'affichage
-        let carte_guard = carte.lock().unwrap();
-        let mut carte_affichage = (*carte_guard).clone();
-        drop(carte_guard);
+        // Create a copy of the map for display
+        let map_guard = map.lock().unwrap();
+        let mut displayed_map = (*map_guard).clone();
+        drop(map_guard);
 
-        // Mettre à jour la carte avec les positions des robots
+        // Update the map with the robots' positions
         if let Ok(robots_guard) = robots.lock() {
             for robot in robots_guard.iter() {
                 let x = robot.get_position_x();
                 let y = robot.get_position_y();
-                if y < carte_affichage.len() && x < carte_affichage[0].len() {
-                    if robot.get_type() == TypeCase::Collecteur {
-                        if let Ok(carte_guard) = carte.lock() {
-                            if carte_guard[y][x] != TypeCase::Base {
-                                carte_affichage[y][x] = robot.get_type();
+                if y < displayed_map.len() && x < displayed_map[0].len() {
+                    if robot.get_type() == TypeCase::Collector {
+                        if let Ok(map_guard) = map.lock() {
+                            if map_guard[y][x] != TypeCase::Base {
+                                displayed_map[y][x] = robot.get_type();
                             }
                         }
                     } else {
-                        carte_affichage[y][x] = robot.get_type();
+                        displayed_map[y][x] = robot.get_type();
                     }
                 }
             }
         }
 
         let mut map_string = String::new();
-        for ligne in carte_affichage.iter() {
-            for case in ligne {
+        for row in displayed_map.iter() {
+            for case in row {
                 let symbol = match case {
-                    TypeCase::Vide => "  ",
-                    TypeCase::Mur => "🪨",
-                    TypeCase::Energie => "⚡",
-                    TypeCase::Minerais => "💎",
+                    TypeCase::Void => "  ",
+                    TypeCase::Wall => "🪨",
+                    TypeCase::Energy => "⚡",
+                    TypeCase::Ore => "💎",
                     TypeCase::Science => "🧪",
                     TypeCase::Base => "🏠",
-                    TypeCase::Explorateur => "🛸",
-                    TypeCase::Collecteur => "🤖",
-                    TypeCase::Inconnu => "▒▒",
+                    TypeCase::Explorer => "🛸",
+                    TypeCase::Collector => "🤖",
+                    TypeCase::Unknown => "▒▒",
                 };
                 map_string.push_str(symbol);
             }

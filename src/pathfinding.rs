@@ -12,11 +12,11 @@ pub fn find_path(
     let width = map[0].len();
     let height = map.len();
 
-    // Création de la grille pour seastar (true = mur, false = passage possible)
+    // Create the grid for seastar (true = wall, false = possible path)
     let mut grid_data = vec![vec![false; width]; height];
     for y in 0..height {
         for x in 0..width {
-            grid_data[y][x] = map[y][x] == TypeCase::Mur || map[y][x] == TypeCase::Inconnu;
+            grid_data[y][x] = map[y][x] == TypeCase::Wall || map[y][x] == TypeCase::Unknown;
         }
     }
 
@@ -24,7 +24,7 @@ pub fn find_path(
     let start_point = Point::new(start.0 as isize, start.1 as isize);
     let goal_point = Point::new(goal.0 as isize, goal.1 as isize);
 
-    // Utilisation de l'algorithme A*
+    // Use of the A* algorithm
     astar(&grid, start_point, goal_point).map(|path| {
         path.into_iter()
             .map(|point| (point.x as usize, point.y as usize))

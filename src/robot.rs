@@ -12,12 +12,12 @@ pub trait Robot: Send {
     fn get_position_y(&self) -> usize;
 }
 
-pub struct Explorateur {
+pub struct Explorer {
     position_x: Arc<Mutex<usize>>,
     position_y: Arc<Mutex<usize>>,
 }
 
-impl Explorateur {
+impl Explorer {
     pub fn new(
         map_width: usize,
         map_height: usize,
@@ -25,7 +25,7 @@ impl Explorateur {
         y: usize,
         base_ref: Arc<Mutex<Base>>,
     ) -> Self {
-        let explorateur = Explorateur {
+        let explorateur = Explorer {
             position_x: Arc::new(Mutex::new(x)),
             position_y: Arc::new(Mutex::new(y)),
         };
@@ -40,18 +40,18 @@ impl Explorateur {
                 let y = *position_y.lock().unwrap();
                 let mut rng = rand::rng();
 
-                // On va évaluer chaque direction possible
+                // Evaluate each possible direction
                 let mut directions = vec![];
                 let possible_moves = [
-                    (0, -1, 0), // Haut
-                    (0, 1, 1),  // Bas
-                    (-1, 0, 2), // Gauche
-                    (1, 0, 3),  // Droite
+                    (0, -1, 0), // Up
+                    (0, 1, 1),  // Down
+                    (-1, 0, 2), // Left
+                    (1, 0, 3),  // Right
                 ];
 
                 if let Ok(base) = base.lock() {
-                    if let Ok(carte_connue) = base.carte_connue.lock() {
-                        if let Ok(carte_reelle) = base.carte_reelle.lock() {
+                    if let Ok(known_map) = base.known_map.lock() {
+                        if let Ok(real_map) = base.real_map.lock() {
                             for (dx, dy, dir) in possible_moves.iter() {
                                 let new_x = x as i32 + dx;
                                 let new_y = y as i32 + dy;
@@ -64,16 +64,16 @@ impl Explorateur {
                                     let new_x = new_x as usize;
                                     let new_y = new_y as usize;
 
-                                    // Ajout d'une logique de priorité pour les cases inconnues qui va augmenter la probabilité de se diriger vers elles
-                                    if let Some(row) = carte_reelle.get(new_y) {
+                                    // Add a priority logic for unknown cases that will increase the probability of moving towards them
+                                    if let Some(row) = real_map.get(new_y) {
                                         if let Some(case_type) = row.get(new_x) {
-                                            if *case_type != TypeCase::Mur {
+                                            if *case_type != TypeCase::Wall {
                                                 let weight = if let Some(known_row) =
-                                                    carte_connue.get(new_y)
+                                                    known_map.get(new_y)
                                                 {
                                                     if let Some(known_type) = known_row.get(new_x) {
-                                                        if *known_type == TypeCase::Inconnu {
-                                                            3 // Donner plus de poids aux cases inexplorées
+                                                        if *known_type == TypeCase::Unknown {
+                                                            3 // More weight to unknown cases
                                                         } else {
                                                             1
                                                         }
@@ -84,7 +84,7 @@ impl Explorateur {
                                                     3
                                                 };
 
-                                                // Ajouter la direction weight fois pour augmenter sa probabilité
+                                                // Add the direction weight times to the possible directions
                                                 for _ in 0..weight {
                                                     directions.push(*dir);
                                                 }
@@ -97,14 +97,14 @@ impl Explorateur {
                     }
                 }
 
-                // Si aucune direction n'est possible, on ne bouge pas
+                // If no direction is possible, do not move
                 if !directions.is_empty() {
                     let direction = directions[rng.random_range(0..directions.len())];
                     let (dx, dy) = match direction {
-                        0 => (0, -1), // Haut
-                        1 => (0, 1),  // Bas
-                        2 => (-1, 0), // Gauche
-                        _ => (1, 0),  // Droite
+                        0 => (0, -1), // Up
+                        1 => (0, 1),  // Down
+                        2 => (-1, 0), // Left
+                        _ => (1, 0),  // Right
                     };
 
                     let new_x = (x as i32 + dx) as usize;
@@ -114,7 +114,7 @@ impl Explorateur {
                     *position_y.lock().unwrap() = new_y;
                 }
 
-                // Communication avec la base après le déplacement (mise à jour de la vision)
+                // Update the known map with the new vision
                 let x = *position_x.lock().unwrap();
                 let y = *position_y.lock().unwrap();
 
@@ -133,12 +133,12 @@ impl Explorateur {
                                     let new_x = new_x as usize;
                                     let new_y = new_y as usize;
 
-                                    if let Ok(carte_reelle) = base.carte_reelle.lock() {
+                                    if let Ok(real_map) = base.real_map.lock() {
                                         if let Some(case_type) =
-                                            carte_reelle.get(new_y).and_then(|row| row.get(new_x))
+                                            real_map.get(new_y).and_then(|row| row.get(new_x))
                                         {
                                             let case_type = case_type.clone();
-                                            base.mettre_a_jour_carte(new_x, new_y, case_type);
+                                            base.update_map(new_x, new_y, case_type);
                                         }
                                     }
                                 }
@@ -155,9 +155,9 @@ impl Explorateur {
     }
 }
 
-impl Robot for Explorateur {
+impl Robot for Explorer {
     fn get_type(&self) -> TypeCase {
-        TypeCase::Explorateur
+        TypeCase::Explorer
     }
 
     fn get_position_x(&self) -> usize {
@@ -169,7 +169,7 @@ impl Robot for Explorateur {
     }
 }
 
-pub struct Collecteur {
+pub struct Collector {
     position_x: Arc<Mutex<usize>>,
     position_y: Arc<Mutex<usize>>,
     at_base: Arc<Mutex<bool>>,
@@ -178,9 +178,9 @@ pub struct Collecteur {
     destination: Arc<Mutex<Option<(usize, usize)>>>,
 }
 
-impl Collecteur {
+impl Collector {
     pub fn new(x: usize, y: usize, base_ref: Arc<Mutex<Base>>) -> Self {
-        let collecteur = Collecteur {
+        let collecteur = Collector {
             position_x: Arc::new(Mutex::new(x)),
             position_y: Arc::new(Mutex::new(y)),
             at_base: Arc::new(Mutex::new(true)),
@@ -208,12 +208,12 @@ impl Collecteur {
                     *at_base.lock().unwrap() = is_at_base;
                     let has_resource = collected_resource.lock().unwrap().is_some();
 
-                    // Si le robot est à la base et n'a pas de ressource, chercher une nouvelle destination
+                    // If the robot is at the base and has no resource, look for a new destination
                     if is_at_base && !has_resource && path_guard.is_empty() {
                         if let Some((target_x, target_y)) = base_guard.next_resource() {
-                            if let Ok(carte_connue) = base_guard.carte_connue.lock() {
+                            if let Ok(known_map) = base_guard.known_map.lock() {
                                 if let Some(new_path) =
-                                    find_path((target_x, target_y), (curr_x, curr_y), &carte_connue)
+                                    find_path((target_x, target_y), (curr_x, curr_y), &known_map)
                                 {
                                     *path_guard = new_path;
                                     *destination.lock().unwrap() = Some((target_x, target_y));
@@ -221,40 +221,39 @@ impl Collecteur {
                             }
                         }
                     }
-                    // Si le robot a une ressource et est à la base, la déposer
+                    // If the robot has a resource and is at the base, drop it
                     else if is_at_base && has_resource {
                         if let Some(resource) = collected_resource.lock().unwrap().clone() {
-                            base_guard.ajouter_ressource(resource);
+                            base_guard.add_resource(resource);
                         }
                         *collected_resource.lock().unwrap() = None;
                     }
-                    // Si le robot a une destination et n'est pas sur un chemin
+                    // If the robot has a destination and is not on a path
                     else if path_guard.is_empty() {
                         if let Some((target_x, target_y)) = *destination.lock().unwrap() {
-                            // Si on est arrivé à destination
+                            // if the robot is on the target, collect the resource
                             if curr_x == target_x && curr_y == target_y {
-                                // Collecter la ressource
+                                // collect the resource
                                 if !has_resource {
-                                    if let Ok(mut carte) = base_guard.carte_reelle.lock() {
-                                        let resource = carte[curr_y][curr_x].clone();
+                                    if let Ok(mut map) = base_guard.real_map.lock() {
+                                        let resource = map[curr_y][curr_x].clone();
                                         *collected_resource.lock().unwrap() =
                                             Some(resource.clone());
 
-                                        //Mettre a jour les cartes en supprimant la ressource
-                                        carte[curr_y][curr_x] = TypeCase::Vide;
-                                        if let Ok(mut carte_connue) = base_guard.carte_connue.lock()
-                                        {
-                                            carte_connue[curr_y][curr_x] = TypeCase::Vide;
+                                        //Update the map
+                                        map[curr_y][curr_x] = TypeCase::Void;
+                                        if let Ok(mut known_map) = base_guard.known_map.lock() {
+                                            known_map[curr_y][curr_x] = TypeCase::Void;
                                         }
 
                                         base_guard.release_resource(curr_x, curr_y);
 
-                                        // Calculer le chemin de retour vers la base
-                                        if let Ok(carte_connue) = base_guard.carte_connue.lock() {
+                                        // Look for a new destination
+                                        if let Ok(known_map) = base_guard.known_map.lock() {
                                             if let Some(new_path) = find_path(
                                                 (base_guard.position_x, base_guard.position_y),
                                                 (curr_x, curr_y),
-                                                &carte_connue,
+                                                &known_map,
                                             ) {
                                                 *path_guard = new_path;
                                             }
@@ -264,7 +263,7 @@ impl Collecteur {
                             }
                         }
                     }
-                    // Si le robot est sur un chemin, suivre le chemin
+                    // If the robot is on a path, follow the path
                     else if let Some((next_x, next_y)) = path_guard.pop() {
                         *position_x.lock().unwrap() = next_x;
                         *position_y.lock().unwrap() = next_y;
@@ -278,9 +277,9 @@ impl Collecteur {
     }
 }
 
-impl Robot for Collecteur {
+impl Robot for Collector {
     fn get_type(&self) -> TypeCase {
-        TypeCase::Collecteur
+        TypeCase::Collector
     }
 
     fn get_position_x(&self) -> usize {

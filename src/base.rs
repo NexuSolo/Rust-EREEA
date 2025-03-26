@@ -1,12 +1,12 @@
 use crate::generation::TypeCase;
-use crate::robot::{Collecteur, Explorateur, Robot};
+use crate::robot::{Collector, Explorer, Robot};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-// Structure pour trier les ressources dans la file de priorité
+// Sort resource by priority level
 #[derive(Clone, Debug, Eq)]
 struct PrioritizedResource {
     x: usize,
@@ -15,14 +15,14 @@ struct PrioritizedResource {
     priority_level: usize,
 }
 
-// Implémentation des traits nécessaires pour la file de priorité
+// Implentation of necessary traits for the priority queue
 impl PartialEq for PrioritizedResource {
     fn eq(&self, other: &Self) -> bool {
         self.priority_level == other.priority_level && self.distance == other.distance
     }
 }
 
-// On inverse l'ordre pour que les ressources prioritaires et proches soient au début
+// Reverse the order so that the most prioritized and closest resources are at the beginning
 impl PartialOrd for PrioritizedResource {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -31,23 +31,23 @@ impl PartialOrd for PrioritizedResource {
 
 impl Ord for PrioritizedResource {
     fn cmp(&self, other: &Self) -> Ordering {
-        // D'abord comparer le niveau de priorité
+        // Compare the priority level first
         match self.priority_level.cmp(&other.priority_level) {
             Ordering::Equal => {}
             ordering => return ordering,
         }
 
-        // Ensuite comparer la distance
+        // Then compare the distance
         other.distance.cmp(&self.distance)
     }
 }
 
 pub struct Base {
-    pub carte_reelle: Arc<Mutex<Vec<Vec<TypeCase>>>>,
-    pub carte_connue: Arc<Mutex<Vec<Vec<TypeCase>>>>,
-    pub robots_deployes: Arc<Mutex<Vec<Box<dyn Robot + Send>>>>,
-    pub energie: Arc<Mutex<usize>>,
-    pub minerais: Arc<Mutex<usize>>,
+    pub real_map: Arc<Mutex<Vec<Vec<TypeCase>>>>,
+    pub known_map: Arc<Mutex<Vec<Vec<TypeCase>>>>,
+    pub deployed_robots: Arc<Mutex<Vec<Box<dyn Robot + Send>>>>,
+    pub energy: Arc<Mutex<usize>>,
+    pub ore: Arc<Mutex<usize>>,
     pub science: Arc<Mutex<usize>>,
     pub position_x: usize,
     pub position_y: usize,
@@ -60,37 +60,37 @@ impl Base {
         height: usize,
         position_x: usize,
         position_y: usize,
-        carte_reelle: Arc<Mutex<Vec<Vec<TypeCase>>>>,
-        carte_connue: Arc<Mutex<Vec<Vec<TypeCase>>>>,
+        real_map: Arc<Mutex<Vec<Vec<TypeCase>>>>,
+        known_map: Arc<Mutex<Vec<Vec<TypeCase>>>>,
     ) -> Arc<Mutex<Self>> {
-        let robots_deployes = Arc::new(Mutex::new(Vec::new()));
-        let energie = Arc::new(Mutex::new(0));
-        let minerais = Arc::new(Mutex::new(0));
+        let deployed_robots = Arc::new(Mutex::new(Vec::new()));
+        let energy = Arc::new(Mutex::new(0));
+        let ore = Arc::new(Mutex::new(0));
         let science = Arc::new(Mutex::new(0));
         let reserved_resources = Arc::new(Mutex::new(HashSet::new()));
 
         let base = Arc::new(Mutex::new(Base {
-            carte_reelle: Arc::clone(&carte_reelle),
-            carte_connue: Arc::clone(&carte_connue),
-            robots_deployes: Arc::clone(&robots_deployes),
-            energie: Arc::clone(&energie),
-            minerais: Arc::clone(&minerais),
+            real_map: Arc::clone(&real_map),
+            known_map: Arc::clone(&known_map),
+            deployed_robots: Arc::clone(&deployed_robots),
+            energy: Arc::clone(&energy),
+            ore: Arc::clone(&ore),
             science: Arc::clone(&science),
             position_x,
             position_y,
             reserved_resources,
         }));
 
-        // Ajouter les robots initiaux
+        // Add initial robots
         if let Ok(mut base_guard) = base.lock() {
-            base_guard.ajouter_robot(Box::new(Explorateur::new(
+            base_guard.add_robot(Box::new(Explorer::new(
                 width,
                 height,
                 position_x,
                 position_y,
                 Arc::clone(&base),
             )));
-            base_guard.ajouter_robot(Box::new(Collecteur::new(
+            base_guard.add_robot(Box::new(Collector::new(
                 position_x,
                 position_y,
                 Arc::clone(&base),
@@ -100,93 +100,93 @@ impl Base {
         base
     }
 
-    pub fn demarrer_thread_base(base: Arc<Mutex<Base>>, map_width: usize, map_height: usize) {
+    pub fn start_base_thread(base: Arc<Mutex<Base>>, map_width: usize, map_height: usize) {
         thread::spawn(move || loop {
-            let mut explorateurs_count = 0;
-            let mut collecteurs_count = 0;
-            let mut energie = 0;
-            let mut minerais = 0;
+            let mut explorers_count = 0;
+            let mut collectors_count = 0;
+            let mut energy = 0;
+            let mut ore = 0;
             let mut science = 0;
             let mut position_x = 0;
             let mut position_y = 0;
 
-            // Initialisé les variables
+            // Init variables
             if let Ok(base_guard) = base.lock() {
                 position_x = base_guard.position_x;
                 position_y = base_guard.position_y;
 
-                if let Ok(robots) = base_guard.robots_deployes.lock() {
+                if let Ok(robots) = base_guard.deployed_robots.lock() {
                     for robot in robots.iter() {
                         match robot.get_type() {
-                            TypeCase::Explorateur => explorateurs_count += 1,
-                            TypeCase::Collecteur => collecteurs_count += 1,
+                            TypeCase::Explorer => explorers_count += 1,
+                            TypeCase::Collector => collectors_count += 1,
                             _ => {}
                         }
                     }
                 }
 
-                if let Ok(e) = base_guard.energie.lock() {
-                    energie = *e;
+                if let Ok(e) = base_guard.energy.lock() {
+                    energy = *e;
                 }
-                if let Ok(m) = base_guard.minerais.lock() {
-                    minerais = *m;
+                if let Ok(m) = base_guard.ore.lock() {
+                    ore = *m;
                 }
                 if let Ok(s) = base_guard.science.lock() {
                     science = *s;
                 }
             }
 
-            // Calculer le ratio et déterminer quel robot créer
-            let ratio_actuel = if explorateurs_count == 0 {
+            // Calculate the ratio and determine which robot to create
+            let current_ratio = if explorers_count == 0 {
                 0.0
             } else {
-                collecteurs_count as f32 / explorateurs_count as f32
+                collectors_count as f32 / explorers_count as f32
             };
 
-            let create_collecteur = ratio_actuel < 2.0
-                && collecteurs_count > 0
+            let create_collector = current_ratio < 2.0
+                && collectors_count > 0
                 && science >= 1
-                && minerais >= 5
-                && energie >= 4;
+                && ore >= 5
+                && energy >= 4;
 
-            let create_explorateur = (ratio_actuel >= 2.0 || explorateurs_count == 0)
+            let create_explorer = (current_ratio >= 2.0 || explorers_count == 0)
                 && science >= 4
-                && minerais >= 3
-                && energie >= 2;
+                && ore >= 3
+                && energy >= 2;
 
-            //Création des robots
-            if create_collecteur || create_explorateur {
+            //Create robots
+            if create_collector || create_explorer {
                 if let Ok(mut base_guard) = base.lock() {
-                    if create_collecteur {
-                        // Ressources pour un collecteur 1 Science, 5 Minerais, 4 Energie
+                    if create_collector {
+                        // Ressources pour un collecteur 1 Science, 5 Ore, 4 Energy
                         if let Ok(mut s) = base_guard.science.lock() {
                             *s -= 1;
                         }
-                        if let Ok(mut m) = base_guard.minerais.lock() {
+                        if let Ok(mut m) = base_guard.ore.lock() {
                             *m -= 5;
                         }
-                        if let Ok(mut e) = base_guard.energie.lock() {
+                        if let Ok(mut e) = base_guard.energy.lock() {
                             *e -= 4;
                         }
 
-                        base_guard.ajouter_robot(Box::new(Collecteur::new(
+                        base_guard.add_robot(Box::new(Collector::new(
                             position_x,
                             position_y,
                             Arc::clone(&base),
                         )));
-                    } else if create_explorateur {
-                        // Ressources pour un explorateur 4 Sciences, 3 Minerais, 2 Energie
+                    } else if create_explorer {
+                        // Resources for explorer : 4 Sciences, 3 Ores, 2 Energies
                         if let Ok(mut s) = base_guard.science.lock() {
                             *s -= 4;
                         }
-                        if let Ok(mut m) = base_guard.minerais.lock() {
+                        if let Ok(mut m) = base_guard.ore.lock() {
                             *m -= 3;
                         }
-                        if let Ok(mut e) = base_guard.energie.lock() {
+                        if let Ok(mut e) = base_guard.energy.lock() {
                             *e -= 2;
                         }
 
-                        base_guard.ajouter_robot(Box::new(Explorateur::new(
+                        base_guard.add_robot(Box::new(Explorer::new(
                             map_width,
                             map_height,
                             position_x,
@@ -201,51 +201,51 @@ impl Base {
         });
     }
 
-    pub fn ajouter_robot(&mut self, robot: Box<dyn Robot + Send>) {
-        self.robots_deployes.lock().unwrap().push(robot);
+    pub fn add_robot(&mut self, robot: Box<dyn Robot + Send>) {
+        self.deployed_robots.lock().unwrap().push(robot);
     }
 
-    pub fn mettre_a_jour_carte(&self, x: usize, y: usize, case: TypeCase) {
-        let mut carte = self.carte_connue.lock().unwrap();
-        if x < carte[0].len() && y < carte.len() {
-            carte[y][x] = case;
+    pub fn update_map(&self, x: usize, y: usize, case: TypeCase) {
+        let mut map = self.known_map.lock().unwrap();
+        if x < map[0].len() && y < map.len() {
+            map[y][x] = case;
         }
     }
 
     pub fn next_resource(&self) -> Option<(usize, usize)> {
-        let carte_connue = self.carte_connue.lock().unwrap();
-        let energie_count = *self.energie.lock().unwrap();
-        let minerais_count = *self.minerais.lock().unwrap();
+        let known_map = self.known_map.lock().unwrap();
+        let energy_count = *self.energy.lock().unwrap();
+        let ore_count = *self.ore.lock().unwrap();
         let science_count = *self.science.lock().unwrap();
         let reserved = self.reserved_resources.lock().unwrap();
 
-        let height = carte_connue.len();
-        let width = carte_connue[0].len();
+        let height = known_map.len();
+        let width = known_map[0].len();
 
-        // Trouver le compteur de ressource le plus élevé
-        let max_resource_count = energie_count.max(minerais_count).max(science_count);
+        // Find the highest resource counter
+        let max_resource_count = energy_count.max(ore_count).max(science_count);
 
         let mut priority_queue: BinaryHeap<PrioritizedResource> = BinaryHeap::new();
 
-        // Parcourir toute la carte pour trouver les ressources
+        // Explore the entire map to find resources
         for y in 0..height {
             for x in 0..width {
-                // Vérifier si la case n'est pas déjà réservée
+                // Check if the case is not already reserved
                 if reserved.contains(&(x, y)) {
                     continue;
                 }
 
-                let case = &carte_connue[y][x];
+                let case = &known_map[y][x];
                 match case {
-                    TypeCase::Energie | TypeCase::Minerais | TypeCase::Science => {
-                        // Calculer la distance entre la ressource et la base
+                    TypeCase::Energy | TypeCase::Ore | TypeCase::Science => {
+                        // Calculate the distance between the resource and the base
                         let distance =
                             Self::manhattan_distance(self.position_x, self.position_y, x, y);
 
-                        // Calculer le niveau de priorité basé sur la différence avec le compteur le plus élevé
+                        // Calculate the priority level based on the difference with the highest counter
                         let priority_level = match case {
-                            TypeCase::Energie => max_resource_count.saturating_sub(energie_count),
-                            TypeCase::Minerais => max_resource_count.saturating_sub(minerais_count),
+                            TypeCase::Energy => max_resource_count.saturating_sub(energy_count),
+                            TypeCase::Ore => max_resource_count.saturating_sub(ore_count),
                             TypeCase::Science => max_resource_count.saturating_sub(science_count),
                             _ => 0,
                         };
@@ -262,9 +262,9 @@ impl Base {
             }
         }
 
-        // Prendre la ressource la plus prioritaire
+        // Take the most prioritized resource
         if let Some(resource) = priority_queue.pop() {
-            drop(carte_connue);
+            drop(known_map);
             drop(reserved);
             self.reserved_resources
                 .lock()
@@ -286,16 +286,16 @@ impl Base {
         }
     }
 
-    pub fn ajouter_ressource(&self, ressource: TypeCase) {
-        match ressource {
-            TypeCase::Energie => {
-                if let Ok(mut energie) = self.energie.lock() {
-                    *energie += 1;
+    pub fn add_resource(&self, resource: TypeCase) {
+        match resource {
+            TypeCase::Energy => {
+                if let Ok(mut energy) = self.energy.lock() {
+                    *energy += 1;
                 }
             }
-            TypeCase::Minerais => {
-                if let Ok(mut minerais) = self.minerais.lock() {
-                    *minerais += 1;
+            TypeCase::Ore => {
+                if let Ok(mut ore) = self.ore.lock() {
+                    *ore += 1;
                 }
             }
             TypeCase::Science => {

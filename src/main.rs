@@ -7,22 +7,23 @@ use crossterm::terminal;
 use std::env;
 
 use crate::base::Base;
-use crate::generation::{generer_carte, TypeCase};
+use crate::generation::{generate_map, TypeCase};
 use crate::ui::run_ui;
 use std::sync::Arc;
 
 fn main() {
-    // Paramètres de la carte
+    // Map settings
     let (width, height) = terminal::size().unwrap();
     let width = (width / 2) as usize;
     let height = height as usize;
 
-    // Valeur par défaut pour la seed
+    // Default value for the seed
     const SEED_DEFAULT: u32 = 0;
 
-    // Récupérer la seed depuis les arguments de ligne de commande
+    // Get the seed from the command line arguments
     let args: Vec<String> = env::args().collect();
-    let seed = args.iter()
+    let seed = args
+        .iter()
         .find(|arg| arg.starts_with("seed="))
         .and_then(|arg| {
             let parts: Vec<&str> = arg.split('=').collect();
@@ -30,7 +31,7 @@ fn main() {
                 match parts[1].parse::<u32>() {
                     Ok(seed_value) => Some(seed_value),
                     Err(_) => {
-                        println!("La seed doit être un nombre entier positif. Utilisation de la seed par défaut.");
+                        println!("The seed must be a positive integer. Using the default seed.");
                         None
                     }
                 }
@@ -40,51 +41,51 @@ fn main() {
         })
         .unwrap_or(SEED_DEFAULT);
 
-    println!("Génération de la carte avec la seed: {}", seed);
+    println!("Map generation with the seed: {}", seed);
 
-    let (carte, carte_connue, (base_x, base_y)) = generer_carte(width, height, seed);
+    let (map, known_map, (base_x, base_y)) = generate_map(width, height, seed);
 
-    // Créer la base et démarrer son thread
+    // Create the base and start its thread
     let base = Base::new(
         width,
         height,
         base_x,
         base_y,
-        carte.clone(),
-        carte_connue.clone(),
+        map.clone(),
+        known_map.clone(),
     );
 
-    Base::demarrer_thread_base(Arc::clone(&base), width, height);
+    Base::start_base_thread(Arc::clone(&base), width, height);
 
-    // Garder le programme en vie
+    // Keep the program alive
     loop {
         if let Ok(base_guard) = base.lock() {
-            let energie = *base_guard.energie.lock().unwrap();
-            let minerais = *base_guard.minerais.lock().unwrap();
+            let energy = *base_guard.energy.lock().unwrap();
+            let ore = *base_guard.ore.lock().unwrap();
             let science = *base_guard.science.lock().unwrap();
-            let nb_robots = base_guard.robots_deployes.lock().unwrap().len();
+            let nb_robots = base_guard.deployed_robots.lock().unwrap().len();
 
-            let mut nb_explorateurs = 0;
-            let mut nb_collecteurs = 0;
-            if let Ok(robots) = base_guard.robots_deployes.lock() {
+            let mut nb_explorers = 0;
+            let mut nb_collectors = 0;
+            if let Ok(robots) = base_guard.deployed_robots.lock() {
                 for robot in robots.iter() {
                     match robot.get_type() {
-                        TypeCase::Explorateur => nb_explorateurs += 1,
-                        TypeCase::Collecteur => nb_collecteurs += 1,
+                        TypeCase::Explorer => nb_explorers += 1,
+                        TypeCase::Collector => nb_collectors += 1,
                         _ => {}
                     }
                 }
             }
 
-            let ressources = format!(
-                "Ressources: {} énergie, {} minerais, {} science | Robots: {} totaux ({} explorateurs, {} collecteurs)",
-                energie, minerais, science, nb_robots, nb_explorateurs, nb_collecteurs
+            let resources = format!(
+                "Resources: {} energy, {} ore, {} science | Robots: {} total ({} explorers, {} collectors)",
+                energy, ore, science, nb_robots, nb_explorers, nb_collectors
             );
 
             run_ui(
-                &base_guard.carte_connue,
-                &ressources,
-                &base_guard.robots_deployes,
+                &base_guard.known_map,
+                &resources,
+                &base_guard.deployed_robots,
             )
             .unwrap();
         }

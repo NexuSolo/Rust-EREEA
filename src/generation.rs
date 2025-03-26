@@ -5,18 +5,18 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum TypeCase {
-    Vide,
+    Void,
     Base,
-    Mur,
-    Energie,
-    Minerais,
+    Wall,
+    Energy,
+    Ore,
     Science,
-    Explorateur,
-    Collecteur,
-    Inconnu,
+    Explorer,
+    Collector,
+    Unknown,
 }
 
-pub fn generer_carte(
+pub fn generate_map(
     width: usize,
     height: usize,
     seed: u32,
@@ -27,71 +27,71 @@ pub fn generer_carte(
 ) {
     let perlin = Perlin::new(seed);
     let mut rng = StdRng::seed_from_u64(seed as u64);
-    let mut carte = vec![vec![TypeCase::Vide; width]; height];
-    let mut carte_connue = vec![vec![TypeCase::Inconnu; width]; height];
+    let mut map = vec![vec![TypeCase::Void; width]; height];
+    let mut known_map = vec![vec![TypeCase::Unknown; width]; height];
 
-    // Génération du terrain
+    // Generate the terrain
     for y in 0..height {
         for x in 0..width {
             let noise_value = perlin.get([x as f64 / 9.25, y as f64 / 8.0]);
-            carte[y][x] = match noise_value {
-                v if v < -0.55 => TypeCase::Mur,
-                v if v < -0.53 => TypeCase::Minerais,
-                _ => TypeCase::Vide,
+            map[y][x] = match noise_value {
+                v if v < -0.55 => TypeCase::Wall,
+                v if v < -0.53 => TypeCase::Ore,
+                _ => TypeCase::Void,
             };
         }
     }
 
-    // Placement de la base
+    // Place the base
     let mut base_x;
     let mut base_y;
     loop {
         base_x = rng.random_range(0..width);
         base_y = rng.random_range(0..height);
-        if carte[base_y][base_x] == TypeCase::Vide {
-            carte[base_y][base_x] = TypeCase::Base;
+        if map[base_y][base_x] == TypeCase::Void {
+            map[base_y][base_x] = TypeCase::Base;
             break;
         }
     }
 
-    // Révéler la zone autour de la base dans la carte_connue
+    // Reveal the area around the base in the known map
     for dy in -3..=3 {
         for dx in -3..=3 {
             let new_x = base_x as i32 + dx;
             let new_y = base_y as i32 + dy;
             if new_x >= 0 && new_x < width as i32 && new_y >= 0 && new_y < height as i32 {
-                carte_connue[new_y as usize][new_x as usize] =
-                    carte[new_y as usize][new_x as usize].clone();
+                known_map[new_y as usize][new_x as usize] =
+                    map[new_y as usize][new_x as usize].clone();
             }
         }
     }
 
-    let taille_carte = width * height;
-    let pourcentage_min = 0.004;
-    let pourcentage_max = 0.006;
+    let map_size = width * height;
+    let percentage_min = 0.004;
+    let percentage_max = 0.006;
 
-    // Ajout de points d'énergie
-    let nb_energie = rng.random_range(
-        (taille_carte as f64 * pourcentage_min).round() as usize
-            ..=(taille_carte as f64 * pourcentage_max).round() as usize,
+    // Add energy points
+    let nb_energy = rng.random_range(
+        (map_size as f64 * percentage_min).round() as usize
+            ..=(map_size as f64 * percentage_max).round() as usize,
     );
-    for _ in 0..nb_energie {
+    for _ in 0..nb_energy {
         let mut x;
         let mut y;
         loop {
             x = rng.random_range(0..width);
             y = rng.random_range(0..height);
-            if carte[y][x] == TypeCase::Vide {
-                carte[y][x] = TypeCase::Energie;
+            if map[y][x] == TypeCase::Void {
+                map[y][x] = TypeCase::Energy;
                 break;
             }
         }
     }
 
-    // Ajout de points de science
+    // Add science points
     let nb_science = rng.random_range(
-        (taille_carte as f64 * pourcentage_min).round() as usize
-            ..=(taille_carte as f64 * pourcentage_max).round() as usize,
+        (map_size as f64 * percentage_min).round() as usize
+            ..=(map_size as f64 * percentage_max).round() as usize,
     );
     for _ in 0..nb_science {
         let mut x;
@@ -99,16 +99,16 @@ pub fn generer_carte(
         loop {
             x = rng.random_range(0..width);
             y = rng.random_range(0..height);
-            if carte[y][x] == TypeCase::Vide {
-                carte[y][x] = TypeCase::Science;
+            if map[y][x] == TypeCase::Void {
+                map[y][x] = TypeCase::Science;
                 break;
             }
         }
     }
 
     (
-        Arc::new(Mutex::new(carte)),
-        Arc::new(Mutex::new(carte_connue)),
+        Arc::new(Mutex::new(map)),
+        Arc::new(Mutex::new(known_map)),
         (base_x, base_y),
     )
 }
