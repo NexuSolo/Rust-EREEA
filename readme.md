@@ -89,6 +89,50 @@ L'interface utilisateur est construite avec la bibliothèque ratatui et crosster
 - Affichage des statistiques des ressources
 - Visualisation des robots sur la carte
 
+## Configuration
+
+Le jeu peut être personnalisé via le fichier `config.toml` qui contient les paramètres suivants :
+
+### Configuration de la carte
+```toml
+[map]
+seed = 0                    # Graine pour la génération de la carte (0 par défaut)
+generation_rate = 0.005     # Taux de génération des ressources sur la carte (0.5%)
+```
+
+### Configuration des robots
+
+#### Explorateurs
+```toml
+[robots.explorer]
+cost_science = 4    # Coût en points de science
+cost_ore = 3        # Coût en minerai
+cost_energy = 2     # Coût en énergie
+vision_range = 2    # Portée de vision (en cases)
+move_delay_ms = 10  # Délai entre chaque déplacement (en millisecondes)
+```
+
+#### Collecteurs
+```toml
+[robots.collector]
+cost_science = 1    # Coût en points de science
+cost_ore = 5        # Coût en minerai
+cost_energy = 4     # Coût en énergie
+move_delay_ms = 100 # Délai entre chaque déplacement (en millisecondes)
+```
+
+### Configuration de la base
+```toml
+[base]
+initial_energy = 0     # Énergie initiale
+initial_ore = 0        # Minerai initial
+initial_science = 0    # Points de science initiaux
+initial_explorers = 1  # Nombre d'explorateurs au démarrage
+initial_collectors = 1 # Nombre de collecteurs au démarrage
+```
+
+Ces paramètres permettent d'ajuster la difficulté et le comportement du jeu selon vos préférences.
+
 ## Comment jouer
 
 1. **Installation** : Assurez-vous d'avoir Rust et Cargo installés

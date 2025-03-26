@@ -3,6 +3,8 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::{Arc, Mutex};
 
+use crate::config::Config;
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum TypeCase {
     Void,
@@ -20,6 +22,7 @@ pub fn generate_map(
     width: usize,
     height: usize,
     seed: u32,
+    config: &Config,
 ) -> (
     Arc<Mutex<Vec<Vec<TypeCase>>>>,
     Arc<Mutex<Vec<Vec<TypeCase>>>>,
@@ -67,14 +70,10 @@ pub fn generate_map(
     }
 
     let map_size = width * height;
-    let percentage_min = 0.004;
-    let percentage_max = 0.006;
+    let percentage_spawn = config.map.generation_rate as f64;
 
     // Add energy points
-    let nb_energy = rng.random_range(
-        (map_size as f64 * percentage_min).round() as usize
-            ..=(map_size as f64 * percentage_max).round() as usize,
-    );
+    let nb_energy = (map_size as f64 * percentage_spawn).round() as usize;
     for _ in 0..nb_energy {
         let mut x;
         let mut y;
@@ -89,10 +88,7 @@ pub fn generate_map(
     }
 
     // Add science points
-    let nb_science = rng.random_range(
-        (map_size as f64 * percentage_min).round() as usize
-            ..=(map_size as f64 * percentage_max).round() as usize,
-    );
+    let nb_science = (map_size as f64 * percentage_spawn).round() as usize;
     for _ in 0..nb_science {
         let mut x;
         let mut y;

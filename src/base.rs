@@ -1,3 +1,4 @@
+use crate::config::{CollectorConfig, Config, ExplorerConfig};
 use crate::generation::TypeCase;
 use crate::robot::{Collector, Explorer, Robot};
 use std::cmp::Ordering;
@@ -52,6 +53,7 @@ pub struct Base {
     pub position_x: usize,
     pub position_y: usize,
     reserved_resources: Arc<Mutex<HashSet<(usize, usize)>>>,
+    config: Config,
 }
 
 impl Base {
@@ -62,39 +64,45 @@ impl Base {
         position_y: usize,
         real_map: Arc<Mutex<Vec<Vec<TypeCase>>>>,
         known_map: Arc<Mutex<Vec<Vec<TypeCase>>>>,
+        config: Config,
     ) -> Arc<Mutex<Self>> {
         let deployed_robots = Arc::new(Mutex::new(Vec::new()));
-        let energy = Arc::new(Mutex::new(0));
-        let ore = Arc::new(Mutex::new(0));
-        let science = Arc::new(Mutex::new(0));
+        let energy = Arc::new(Mutex::new(config.base.initial_energy));
+        let ore = Arc::new(Mutex::new(config.base.initial_ore));
+        let science = Arc::new(Mutex::new(config.base.initial_science));
         let reserved_resources = Arc::new(Mutex::new(HashSet::new()));
 
         let base = Arc::new(Mutex::new(Base {
-            real_map: Arc::clone(&real_map),
-            known_map: Arc::clone(&known_map),
-            deployed_robots: Arc::clone(&deployed_robots),
-            energy: Arc::clone(&energy),
-            ore: Arc::clone(&ore),
-            science: Arc::clone(&science),
+            real_map,
+            known_map,
+            deployed_robots,
+            energy,
+            ore,
+            science,
             position_x,
             position_y,
             reserved_resources,
+            config,
         }));
 
-        // Add initial robots
+        // Ajout des robots initiaux
         if let Ok(mut base_guard) = base.lock() {
-            base_guard.add_robot(Box::new(Explorer::new(
-                width,
-                height,
-                position_x,
-                position_y,
-                Arc::clone(&base),
-            )));
-            base_guard.add_robot(Box::new(Collector::new(
-                position_x,
-                position_y,
-                Arc::clone(&base),
-            )));
+            for _ in 0..base_guard.config.base.initial_explorers {
+                base_guard.add_robot(Box::new(Explorer::new(
+                    width,
+                    height,
+                    position_x,
+                    position_y,
+                    Arc::clone(&base),
+                )));
+            }
+            for _ in 0..base_guard.config.base.initial_collectors {
+                base_guard.add_robot(Box::new(Collector::new(
+                    position_x,
+                    position_y,
+                    Arc::clone(&base),
+                )));
+            }
         }
 
         base
@@ -109,11 +117,13 @@ impl Base {
             let mut science = 0;
             let mut position_x = 0;
             let mut position_y = 0;
+            let mut config = None;
 
             // Init variables
             if let Ok(base_guard) = base.lock() {
                 position_x = base_guard.position_x;
                 position_y = base_guard.position_y;
+                config = Some(base_guard.config.clone());
 
                 if let Ok(robots) = base_guard.deployed_robots.lock() {
                     for robot in robots.iter() {
@@ -136,63 +146,63 @@ impl Base {
                 }
             }
 
-            // Calculate the ratio and determine which robot to create
-            let current_ratio = if explorers_count == 0 {
-                0.0
-            } else {
-                collectors_count as f32 / explorers_count as f32
-            };
+            if let Some(config) = config {
+                // Calculate the ratio and determine which robot to create
+                let current_ratio = if explorers_count == 0 {
+                    0.0
+                } else {
+                    collectors_count as f32 / explorers_count as f32
+                };
 
-            let create_collector = current_ratio < 2.0
-                && collectors_count > 0
-                && science >= 1
-                && ore >= 5
-                && energy >= 4;
+                let create_collector = current_ratio < 2.0
+                    && collectors_count > 0
+                    && science >= config.robots.collector.cost_science
+                    && ore >= config.robots.collector.cost_ore
+                    && energy >= config.robots.collector.cost_energy;
 
-            let create_explorer = (current_ratio >= 2.0 || explorers_count == 0)
-                && science >= 4
-                && ore >= 3
-                && energy >= 2;
+                let create_explorer = (current_ratio >= 2.0 || explorers_count == 0)
+                    && science >= config.robots.explorer.cost_science
+                    && ore >= config.robots.explorer.cost_ore
+                    && energy >= config.robots.explorer.cost_energy;
 
-            //Create robots
-            if create_collector || create_explorer {
-                if let Ok(mut base_guard) = base.lock() {
-                    if create_collector {
-                        // Ressources pour un collecteur 1 Science, 5 Ore, 4 Energy
-                        if let Ok(mut s) = base_guard.science.lock() {
-                            *s -= 1;
-                        }
-                        if let Ok(mut m) = base_guard.ore.lock() {
-                            *m -= 5;
-                        }
-                        if let Ok(mut e) = base_guard.energy.lock() {
-                            *e -= 4;
-                        }
+                //Create robots
+                if create_collector || create_explorer {
+                    if let Ok(mut base_guard) = base.lock() {
+                        if create_collector {
+                            if let Ok(mut s) = base_guard.science.lock() {
+                                *s -= config.robots.collector.cost_science;
+                            }
+                            if let Ok(mut m) = base_guard.ore.lock() {
+                                *m -= config.robots.collector.cost_ore;
+                            }
+                            if let Ok(mut e) = base_guard.energy.lock() {
+                                *e -= config.robots.collector.cost_energy;
+                            }
 
-                        base_guard.add_robot(Box::new(Collector::new(
-                            position_x,
-                            position_y,
-                            Arc::clone(&base),
-                        )));
-                    } else if create_explorer {
-                        // Resources for explorer : 4 Sciences, 3 Ores, 2 Energies
-                        if let Ok(mut s) = base_guard.science.lock() {
-                            *s -= 4;
-                        }
-                        if let Ok(mut m) = base_guard.ore.lock() {
-                            *m -= 3;
-                        }
-                        if let Ok(mut e) = base_guard.energy.lock() {
-                            *e -= 2;
-                        }
+                            base_guard.add_robot(Box::new(Collector::new(
+                                position_x,
+                                position_y,
+                                Arc::clone(&base),
+                            )));
+                        } else if create_explorer {
+                            if let Ok(mut s) = base_guard.science.lock() {
+                                *s -= config.robots.explorer.cost_science;
+                            }
+                            if let Ok(mut m) = base_guard.ore.lock() {
+                                *m -= config.robots.explorer.cost_ore;
+                            }
+                            if let Ok(mut e) = base_guard.energy.lock() {
+                                *e -= config.robots.explorer.cost_energy;
+                            }
 
-                        base_guard.add_robot(Box::new(Explorer::new(
-                            map_width,
-                            map_height,
-                            position_x,
-                            position_y,
-                            Arc::clone(&base),
-                        )));
+                            base_guard.add_robot(Box::new(Explorer::new(
+                                map_width,
+                                map_height,
+                                position_x,
+                                position_y,
+                                Arc::clone(&base),
+                            )));
+                        }
                     }
                 }
             }
@@ -305,5 +315,13 @@ impl Base {
             }
             _ => {}
         }
+    }
+
+    pub fn get_explorer_config(&self) -> ExplorerConfig {
+        self.config.robots.explorer.clone()
+    }
+
+    pub fn get_collector_config(&self) -> CollectorConfig {
+        self.config.robots.collector.clone()
     }
 }

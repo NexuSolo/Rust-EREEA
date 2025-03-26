@@ -35,12 +35,23 @@ impl Explorer {
         let base = Arc::clone(&base_ref);
 
         thread::spawn(move || {
+            // Récupérer la configuration du robot
+            let vision_range;
+            let move_delay_ms;
+            if let Ok(base_guard) = base.lock() {
+                let config = base_guard.get_explorer_config();
+                vision_range = config.vision_range;
+                move_delay_ms = config.move_delay_ms;
+            } else {
+                vision_range = 2; // Valeur par défaut
+                move_delay_ms = 10; // Valeur par défaut
+            }
+
             loop {
                 let x = *position_x.lock().unwrap();
                 let y = *position_y.lock().unwrap();
                 let mut rng = rand::rng();
 
-                // Evaluate each possible direction
                 let mut directions = vec![];
                 let possible_moves = [
                     (0, -1, 0), // Up
@@ -64,16 +75,15 @@ impl Explorer {
                                     let new_x = new_x as usize;
                                     let new_y = new_y as usize;
 
-                                    // Add a priority logic for unknown cases that will increase the probability of moving towards them
-                                    if let Some(row) = real_map.get(new_y) {
-                                        if let Some(case_type) = row.get(new_x) {
-                                            if *case_type != TypeCase::Wall {
-                                                let weight = if let Some(known_row) =
-                                                    known_map.get(new_y)
-                                                {
+                                    if let Some(case_type) =
+                                        real_map.get(new_y).and_then(|row| row.get(new_x))
+                                    {
+                                        if *case_type != TypeCase::Wall {
+                                            let weight =
+                                                if let Some(known_row) = known_map.get(new_y) {
                                                     if let Some(known_type) = known_row.get(new_x) {
                                                         if *known_type == TypeCase::Unknown {
-                                                            3 // More weight to unknown cases
+                                                            3 // Plus de poids pour les cases inconnues
                                                         } else {
                                                             1
                                                         }
@@ -84,10 +94,8 @@ impl Explorer {
                                                     3
                                                 };
 
-                                                // Add the direction weight times to the possible directions
-                                                for _ in 0..weight {
-                                                    directions.push(*dir);
-                                                }
+                                            for _ in 0..weight {
+                                                directions.push(*dir);
                                             }
                                         }
                                     }
@@ -97,7 +105,6 @@ impl Explorer {
                     }
                 }
 
-                // If no direction is possible, do not move
                 if !directions.is_empty() {
                     let direction = directions[rng.random_range(0..directions.len())];
                     let (dx, dy) = match direction {
@@ -114,17 +121,13 @@ impl Explorer {
                     *position_y.lock().unwrap() = new_y;
                 }
 
-                // Update the known map with the new vision
-                let x = *position_x.lock().unwrap();
-                let y = *position_y.lock().unwrap();
-
                 if let Ok(base) = base.lock() {
-                    for dy in -2..=2 {
-                        for dx in -2..=2 {
-                            let new_x = x as i32 + dx;
-                            let new_y = y as i32 + dy;
+                    for dy in -(vision_range as i32)..=(vision_range as i32) {
+                        for dx in -(vision_range as i32)..=(vision_range as i32) {
+                            if (dx.abs() + dy.abs()) as usize <= vision_range {
+                                let new_x = x as i32 + dx;
+                                let new_y = y as i32 + dy;
 
-                            if (dx.abs() + dy.abs()) <= 2 {
                                 if new_x >= 0
                                     && new_y >= 0
                                     && new_x < map_width as i32
@@ -147,7 +150,7 @@ impl Explorer {
                     }
                 }
 
-                thread::sleep(Duration::from_millis(10));
+                thread::sleep(Duration::from_millis(move_delay_ms));
             }
         });
 
@@ -198,6 +201,13 @@ impl Collector {
         let base = Arc::clone(&base_ref);
 
         thread::spawn(move || {
+            // Récupérer la configuration du robot
+            let move_delay_ms = if let Ok(base_guard) = base.lock() {
+                base_guard.get_collector_config().move_delay_ms
+            } else {
+                100 // Valeur par défaut
+            };
+
             loop {
                 if let Ok(base_guard) = base.lock() {
                     let curr_x = *position_x.lock().unwrap();
@@ -269,7 +279,7 @@ impl Collector {
                         *position_y.lock().unwrap() = next_y;
                     }
                 }
-                thread::sleep(Duration::from_millis(100));
+                thread::sleep(Duration::from_millis(move_delay_ms));
             }
         });
 

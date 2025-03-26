@@ -1,51 +1,32 @@
 mod base;
+mod config;
 mod generation;
 mod pathfinding;
 mod robot;
 mod ui;
+
 use crossterm::terminal;
-use std::env;
 
 use crate::base::Base;
+use crate::config::Config;
 use crate::generation::{generate_map, TypeCase};
 use crate::ui::run_ui;
 use std::sync::Arc;
 
 fn main() {
-    // Map settings
+    // Charger la configuration
+    let config = Config::load().expect("Impossible de charger la configuration");
+
     let (width, height) = terminal::size().unwrap();
     let width = (width / 2) as usize;
     let height = height as usize;
 
-    // Default value for the seed
-    const SEED_DEFAULT: u32 = 0;
+    // Utiliser la seed de la configuration
+    let seed = config.map.seed;
 
-    // Get the seed from the command line arguments
-    let args: Vec<String> = env::args().collect();
-    let seed = args
-        .iter()
-        .find(|arg| arg.starts_with("seed="))
-        .and_then(|arg| {
-            let parts: Vec<&str> = arg.split('=').collect();
-            if parts.len() > 1 {
-                match parts[1].parse::<u32>() {
-                    Ok(seed_value) => Some(seed_value),
-                    Err(_) => {
-                        println!("The seed must be a positive integer. Using the default seed.");
-                        None
-                    }
-                }
-            } else {
-                None
-            }
-        })
-        .unwrap_or(SEED_DEFAULT);
+    let (map, known_map, (base_x, base_y)) = generate_map(width, height, seed, &config);
 
-    println!("Map generation with the seed: {}", seed);
-
-    let (map, known_map, (base_x, base_y)) = generate_map(width, height, seed);
-
-    // Create the base and start its thread
+    // Créer la base avec la configuration
     let base = Base::new(
         width,
         height,
@@ -53,11 +34,12 @@ fn main() {
         base_y,
         map.clone(),
         known_map.clone(),
+        config,
     );
 
     Base::start_base_thread(Arc::clone(&base), width, height);
 
-    // Keep the program alive
+    // Garder le programme en vie
     loop {
         if let Ok(base_guard) = base.lock() {
             let energy = *base_guard.energy.lock().unwrap();

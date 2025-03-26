@@ -1,0 +1,24 @@
+[map]
+seed = 0
+generation_rate = 0.005
+
+[robots]
+[robots.explorer]
+cost_science = 4
+cost_ore = 3
+cost_energy = 2
+vision_range = 2
+move_delay_ms = 10
+
+[robots.collector]
+cost_science = 1
+cost_ore = 5
+cost_energy = 4
+move_delay_ms = 100
+
+[base]
+initial_energy = 0
+initial_ore = 0
+initial_science = 0
+initial_explorers = 1
+initial_collectors = 1
