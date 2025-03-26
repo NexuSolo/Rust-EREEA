@@ -67,7 +67,7 @@ pub fn run_ui(
                     TypeCase::Mur => "🪨",
                     TypeCase::Energie => "⚡",
                     TypeCase::Minerais => "💎",
-                    TypeCase::Science => "S ",
+                    TypeCase::Science => "🧪",
                     TypeCase::Base => "🏠",
                     TypeCase::Explorateur => "🛸",
                     TypeCase::Collecteur => "🤖",
