@@ -4,6 +4,7 @@ mod pathfinding;
 mod robot;
 mod ui;
 use crossterm::terminal;
+use std::env;
 
 use crate::base::Base;
 use crate::generation::{generer_carte, TypeCase};
@@ -15,7 +16,31 @@ fn main() {
     let (width, height) = terminal::size().unwrap();
     let width = (width / 2) as usize;
     let height = height as usize;
-    let seed = 826889;
+
+    // Valeur par défaut pour la seed
+    const SEED_DEFAULT: u32 = 0;
+
+    // Récupérer la seed depuis les arguments de ligne de commande
+    let args: Vec<String> = env::args().collect();
+    let seed = args.iter()
+        .find(|arg| arg.starts_with("seed="))
+        .and_then(|arg| {
+            let parts: Vec<&str> = arg.split('=').collect();
+            if parts.len() > 1 {
+                match parts[1].parse::<u32>() {
+                    Ok(seed_value) => Some(seed_value),
+                    Err(_) => {
+                        println!("La seed doit être un nombre entier positif. Utilisation de la seed par défaut.");
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        })
+        .unwrap_or(SEED_DEFAULT);
+
+    println!("Génération de la carte avec la seed: {}", seed);
 
     let (carte, carte_connue, (base_x, base_y)) = generer_carte(width, height, seed);
 

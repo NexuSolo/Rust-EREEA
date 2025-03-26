@@ -66,8 +66,15 @@ pub fn generer_carte(
         }
     }
 
+    let taille_carte = width * height;
+    let pourcentage_min = 0.004;
+    let pourcentage_max = 0.006;
+
     // Ajout de points d'énergie
-    let nb_energie = rng.random_range(10..=20);
+    let nb_energie = rng.random_range(
+        (taille_carte as f64 * pourcentage_min).round() as usize
+            ..=(taille_carte as f64 * pourcentage_max).round() as usize,
+    );
     for _ in 0..nb_energie {
         let mut x;
         let mut y;
@@ -82,7 +89,10 @@ pub fn generer_carte(
     }
 
     // Ajout de points de science
-    let nb_science = rng.random_range(10..=20);
+    let nb_science = rng.random_range(
+        (taille_carte as f64 * pourcentage_min).round() as usize
+            ..=(taille_carte as f64 * pourcentage_max).round() as usize,
+    );
     for _ in 0..nb_science {
         let mut x;
         let mut y;
